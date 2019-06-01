@@ -19,13 +19,14 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CallbackServiceImpl implements CallbackService {
 
     public CallbackServiceImpl() {
+        String host = "provider-" + System.getProperty("quota");
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
                 if (!listeners.isEmpty()) {
                     for (Map.Entry<String, CallbackListener> entry : listeners.entrySet()) {
                         try {
-                            entry.getValue().receiveServerMsg(System.getProperty("quota") + " " + new Date().toString() + TestServerFilter.getActiveCount());
+                            entry.getValue().receiveServerMsg(host + TestServerFilter.getActiveCount());
                         } catch (Throwable t1) {
                             listeners.remove(entry.getKey());
                         }
@@ -36,9 +37,10 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     static void sendCallbackImmediately() {
+        String host = "provider-" + System.getProperty("quota");
         for (Map.Entry<String, CallbackListener> entry : listeners.entrySet()) {
             try {
-                entry.getValue().receiveServerMsg(System.getProperty("quota") + " " + new Date().toString() + TestServerFilter.getActiveCount());
+                entry.getValue().receiveServerMsg(host + TestServerFilter.getActiveCount());
             } catch (Throwable t1) {
                 listeners.remove(entry.getKey());
             }
