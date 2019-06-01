@@ -2,7 +2,9 @@ package com.aliware.tianchi;
 
 import org.apache.dubbo.rpc.listener.CallbackListener;
 
+import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -17,26 +19,22 @@ public class CallbackListenerImpl implements CallbackListener {
 
     @Override
     public void receiveServerMsg(String msg) {
-        String[] tokens = msg.split("\\|");
-        long totalThreads = 0;
-        for (int i = 1; i < tokens.length; i++) {
-            String[] kv = tokens[i].split("#");
-            String url = kv[0];
-            int active = Integer.valueOf(kv[1]);
-            long rtt = Long.valueOf(kv[2]);
-            long thread = Long.valueOf(kv[3]);
-            AtomicInteger integer = UserLoadBalance.activeMap.get(url);
-            if (integer == null) {
-                UserLoadBalance.activeMap.putIfAbsent(url, new AtomicInteger());
-                integer = UserLoadBalance.activeMap.get(url);
-            }
-            integer.set(active);
-            UserLoadBalance.rttMap.put(url, rtt);
-            UserLoadBalance.threadMap.put(url, thread);
-            totalThreads += thread;
+        String[] tokens = msg.split("#");
+        if (tokens.length < 4) return;
+        String host = tokens[0];
+        int active = Integer.valueOf(tokens[1]);
+        long rtt = Long.valueOf(tokens[2]);
+        long thread = Long.valueOf(tokens[3]);
+        AtomicInteger integer = UserLoadBalance.activeMap.get(host);
+        if (integer == null) {
+            UserLoadBalance.activeMap.putIfAbsent(host, new AtomicInteger());
+            integer = UserLoadBalance.activeMap.get(host);
         }
-        for (Map.Entry<String, Long> entry : UserLoadBalance.threadMap.entrySet()) {
-            UserLoadBalance.performanceMap.put(entry.getKey(), 1.0 * totalThreads / entry.getValue());
+        integer.set(active);
+        UserLoadBalance.rttMap.put(host, rtt);
+        if (UserLoadBalance.threadMap.get(host) == null) {
+            UserLoadBalance.threadMap.put(host, thread);
+            UserLoadBalance.threadChanged.set(true);
         }
     }
 

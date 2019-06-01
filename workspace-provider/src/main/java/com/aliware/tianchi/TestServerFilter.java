@@ -7,6 +7,9 @@ import org.apache.dubbo.rpc.*;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * @author daofeng.xjf
@@ -17,23 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Activate(group = Constants.PROVIDER)
 public class TestServerFilter implements Filter {
-    private static final ConcurrentHashMap<String, Integer> activeCount = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<String, Long> rttMap = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<String, Long> threadMap = new ConcurrentHashMap<>();
+    private static final AtomicBoolean init = new AtomicBoolean(true);
+    private static int activeThreads;
+    private static long rtt;
+    private static int threads;
 
     public static String getActiveCount() {
-        StringBuilder builder = new StringBuilder();
-        for (Map.Entry<String, Integer> entry : activeCount.entrySet()) {
-            builder.append("|");
-            builder.append(entry.getKey());
-            builder.append("#");
-            builder.append(entry.getValue());
-            builder.append("#");
-            builder.append(rttMap.getOrDefault(entry.getKey(), 1000L));
-            builder.append("#");
-            builder.append(threadMap.getOrDefault(entry.getKey(), 200L));
-        }
-        return builder.toString();
+        return "#" + activeThreads + "#" + rtt + "#" + threads;
     }
 
     @Override
@@ -43,16 +36,20 @@ public class TestServerFilter implements Filter {
         URL url = URL.valueOf(invoker.getUrl().toIdentityString());
         RpcStatus.beginCount(url, invocation.getMethodName());
         RpcStatus status = RpcStatus.getStatus(url);
-        threadMap.put(url.toString(), Long.valueOf(Integer.valueOf(invoker.getUrl().getParameter("threads"))));
+        if (init.get()) {
+            if (init.compareAndSet(true, false)) {
+                threads = Integer.valueOf(invoker.getUrl().getParameter("threads"));
+            }
+        }
         try {
             result = invoker.invoke(invocation);
             RpcStatus.endCount(url, invocation.getMethodName(), System.currentTimeMillis() - begin, true);
-            activeCount.put(url.toString(), status.getActive());
-            rttMap.put(url.toString(), status.getAverageElapsed());
+            activeThreads = status.getActive();
+            rtt = status.getAverageElapsed();
         } catch (Exception e) {
             RpcStatus.endCount(url, invocation.getMethodName(), System.currentTimeMillis() - begin, false);
-            activeCount.put(url.toString(), status.getActive());
-            rttMap.put(url.toString(), 1000L);
+            activeThreads = status.getActive();
+            rtt = 500;
             CallbackServiceImpl.sendCallbackImmediately();
             throw e;
         }
