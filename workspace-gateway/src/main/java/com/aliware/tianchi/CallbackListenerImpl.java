@@ -20,18 +20,9 @@ public class CallbackListenerImpl implements CallbackListener {
     @Override
     public void receiveServerMsg(String msg) {
         String[] tokens = msg.split("#");
-        if (tokens.length < 4) return;
+        if (tokens.length < 2) return;
         String host = tokens[0];
-        int active = Integer.valueOf(tokens[1]);
-        long rtt = Long.valueOf(tokens[2]);
-        long thread = Long.valueOf(tokens[3]);
-        AtomicInteger integer = UserLoadBalance.activeMap.get(host);
-        if (integer == null) {
-            UserLoadBalance.activeMap.putIfAbsent(host, new AtomicInteger());
-            integer = UserLoadBalance.activeMap.get(host);
-        }
-        integer.set(active);
-        UserLoadBalance.rttMap.put(host, rtt);
+        int thread = Integer.valueOf(tokens[1]);
         if (UserLoadBalance.threadMap.get(host) == null) {
             UserLoadBalance.threadMap.put(host, thread);
             UserLoadBalance.threadChanged.set(true);
