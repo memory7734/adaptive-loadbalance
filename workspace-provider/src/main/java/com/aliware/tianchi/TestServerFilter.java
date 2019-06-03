@@ -23,19 +23,19 @@ public class TestServerFilter implements Filter {
     private static final AtomicBoolean init = new AtomicBoolean(true);
     private static int activeThreads;
     private static long rtt;
-    private static int threads;
+    public static int threads;
 
     public static String getActiveCount() {
-        return "#" + threads;
+        return "#" + threads + "#" + activeThreads + "#" + rtt;
     }
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         Result result;
-        // long begin = System.currentTimeMillis();
-        // URL url = URL.valueOf(invoker.getUrl().toIdentityString());
-        // RpcStatus.beginCount(url, invocation.getMethodName());
-        // RpcStatus status = RpcStatus.getStatus(url);
+        long begin = System.currentTimeMillis();
+        URL url = URL.valueOf(invoker.getUrl().toIdentityString());
+        RpcStatus.beginCount(url, invocation.getMethodName());
+        RpcStatus status = RpcStatus.getStatus(url);
         if (init.get()) {
             if (init.compareAndSet(true, false)) {
                 threads = Integer.valueOf(invoker.getUrl().getParameter("threads"));
@@ -43,14 +43,14 @@ public class TestServerFilter implements Filter {
         }
         try {
             result = invoker.invoke(invocation);
-            // RpcStatus.endCount(url, invocation.getMethodName(), System.currentTimeMillis() - begin, true);
-            // activeThreads = status.getActive();
-            // rtt = status.getAverageElapsed();
+            RpcStatus.endCount(url, invocation.getMethodName(), System.currentTimeMillis() - begin, true);
+            activeThreads = status.getActive();
+            rtt = status.getAverageElapsed();
         } catch (Exception e) {
-            // RpcStatus.endCount(url, invocation.getMethodName(), System.currentTimeMillis() - begin, false);
-            // activeThreads = status.getActive();
-            // rtt = 500;
-            // CallbackServiceImpl.sendCallbackImmediately();
+            RpcStatus.endCount(url, invocation.getMethodName(), System.currentTimeMillis() - begin, false);
+            activeThreads = status.getActive();
+            rtt = 500;
+            CallbackServiceImpl.sendCallbackImmediately();
             throw e;
         }
         return result;

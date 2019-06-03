@@ -1,16 +1,13 @@
 package com.aliware.tianchi;
 
-import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.URL;
 import org.apache.dubbo.rpc.Invocation;
 import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.RpcException;
-import org.apache.dubbo.rpc.RpcStatus;
 import org.apache.dubbo.rpc.cluster.LoadBalance;
 
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -27,33 +24,34 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class UserLoadBalance implements LoadBalance {
 
     static final ConcurrentHashMap<String, Integer> threadMap = new ConcurrentHashMap<>();
-    static final AtomicBoolean threadChanged = new AtomicBoolean(false);
-    private static final AtomicInteger totalThread = new AtomicInteger();
+    static final ConcurrentHashMap<String, Integer> remainderMap = new ConcurrentHashMap<>();
+    static final ConcurrentHashMap<String, Long> rttMap = new ConcurrentHashMap<>();
+    static final AtomicBoolean activeChanged = new AtomicBoolean(false);
+    private static int totalRemainder = 0;
 
     private void changPerformanceByThread() {
-        if (threadChanged.compareAndSet(true, false)) {
+        if (activeChanged.compareAndSet(true, false)) {
             int total = 0;
-            for (Map.Entry<String, Integer> entry : threadMap.entrySet()) {
+            for (Map.Entry<String, Integer> entry : remainderMap.entrySet()) {
                 total += entry.getValue();
             }
-            totalThread.set(total);
+            totalRemainder = total;
         }
     }
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        if (threadChanged.get()) {
+        if (activeChanged.get()) {
             changPerformanceByThread();
         }
-        if (totalThread.get() > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(totalThread.get());
+        if (totalRemainder > 0) {
+            int offset = ThreadLocalRandom.current().nextInt(totalRemainder);
             for (Invoker<T> invoker : invokers) {
                 String host = invoker.getUrl().getHost();
-                offset -= threadMap.getOrDefault(host, 200);
+                offset -= remainderMap.getOrDefault(host, 0);
                 if (offset < 0) {
                     return invoker;
                 }
-
             }
         }
         return invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
