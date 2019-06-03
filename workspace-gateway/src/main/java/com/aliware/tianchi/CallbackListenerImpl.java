@@ -2,11 +2,6 @@ package com.aliware.tianchi;
 
 import org.apache.dubbo.rpc.listener.CallbackListener;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * @author daofeng.xjf
  * <p>
@@ -20,13 +15,20 @@ public class CallbackListenerImpl implements CallbackListener {
     @Override
     public void receiveServerMsg(String msg) {
         String[] tokens = msg.split("#");
-        if (tokens.length < 2) return;
         String host = tokens[0];
         int thread = Integer.valueOf(tokens[1]);
+        int active = Integer.valueOf(tokens[2]);
+        long rtt = Long.valueOf(tokens[3]);
+
         if (UserLoadBalance.threadMap.get(host) == null) {
             UserLoadBalance.threadMap.put(host, thread);
-            UserLoadBalance.threadChanged.set(true);
+            UserLoadBalance.activeChanged.set(true);
         }
+        if (thread - active != UserLoadBalance.remainderMap.getOrDefault(host, 0)) {
+            UserLoadBalance.remainderMap.put(host, thread - active);
+            UserLoadBalance.activeChanged.set(true);
+        }
+        UserLoadBalance.rttMap.put(host, rtt);
     }
 
 }
