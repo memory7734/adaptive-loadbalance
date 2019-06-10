@@ -15,6 +15,7 @@ public class CallbackListenerImpl implements CallbackListener {
     @Override
     public void receiveServerMsg(String msg) {
         String[] tokens = msg.split("#");
+        if (tokens.length < 4) return;
         String host = tokens[0];
         int thread = Integer.valueOf(tokens[1]);
         int active = Integer.valueOf(tokens[2]);

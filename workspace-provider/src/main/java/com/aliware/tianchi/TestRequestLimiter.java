@@ -20,7 +20,8 @@ public class TestRequestLimiter implements RequestLimiter {
      */
     @Override
     public boolean tryAcquire(Request request, int activeTaskCount) {
-        return TestServerFilter.threads == 0 || TestServerFilter.threads >= activeTaskCount;
+        int threads = TestServerFilter.getThreads();
+        return threads == 0 || threads >= activeTaskCount;
     }
 
 }
