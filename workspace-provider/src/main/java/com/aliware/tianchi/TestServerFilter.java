@@ -23,10 +23,14 @@ public class TestServerFilter implements Filter {
     private static final AtomicBoolean init = new AtomicBoolean(true);
     private static int activeThreads;
     private static long rtt;
-    public static int threads;
+    private static int threads = 0;
 
-    public static String getActiveCount() {
+    static String getActiveCount() {
         return "#" + threads + "#" + activeThreads + "#" + rtt;
+    }
+
+    static int getThreads() {
+        return threads;
     }
 
     @Override
