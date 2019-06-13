@@ -24,16 +24,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class UserLoadBalance implements LoadBalance {
 
     static final ConcurrentHashMap<String, Integer> threadMap = new ConcurrentHashMap<>();
-    static final ConcurrentHashMap<String, Integer> remainderMap = new ConcurrentHashMap<>();
+    static final ConcurrentHashMap<String, AtomicInteger> remainderMap = new ConcurrentHashMap<>();
     static final ConcurrentHashMap<String, Long> rttMap = new ConcurrentHashMap<>();
     static final AtomicBoolean activeChanged = new AtomicBoolean(false);
-    private static int totalRemainder = 0;
+    private static volatile int totalRemainder = 0;
+    private static final AtomicInteger zero = new AtomicInteger(0);
 
     private void changPerformanceByThread() {
         if (activeChanged.compareAndSet(true, false)) {
             int total = 0;
-            for (Map.Entry<String, Integer> entry : remainderMap.entrySet()) {
-                total += entry.getValue();
+            for (Map.Entry<String, AtomicInteger> entry : remainderMap.entrySet()) {
+                total += entry.getValue().get();
             }
             totalRemainder = total;
         }
@@ -48,12 +49,16 @@ public class UserLoadBalance implements LoadBalance {
             int offset = ThreadLocalRandom.current().nextInt(totalRemainder);
             for (Invoker<T> invoker : invokers) {
                 String host = invoker.getUrl().getHost();
-                offset -= remainderMap.getOrDefault(host, 0);
+                offset -= remainderMap.getOrDefault(host, zero).get();
                 if (offset < 0) {
+                    remainderMap.get(host).getAndDecrement();
                     return invoker;
                 }
             }
         }
-        return invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        Invoker<T> invoker = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        AtomicInteger integer = remainderMap.get(invoker.getUrl().getHost());
+        if (integer != null) integer.getAndDecrement();
+        return invoker;
     }
 }

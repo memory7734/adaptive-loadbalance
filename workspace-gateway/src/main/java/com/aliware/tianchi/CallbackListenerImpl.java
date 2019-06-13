@@ -2,6 +2,8 @@ package com.aliware.tianchi;
 
 import org.apache.dubbo.rpc.listener.CallbackListener;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * @author daofeng.xjf
  * <p>
@@ -25,8 +27,13 @@ public class CallbackListenerImpl implements CallbackListener {
             UserLoadBalance.threadMap.put(host, thread);
             UserLoadBalance.activeChanged.set(true);
         }
-        if (thread - active != UserLoadBalance.remainderMap.getOrDefault(host, 0)) {
-            UserLoadBalance.remainderMap.put(host, thread - active);
+        AtomicInteger remainder = UserLoadBalance.remainderMap.get(host);
+        if (remainder == null) {
+            UserLoadBalance.remainderMap.putIfAbsent(host, new AtomicInteger());
+            remainder = UserLoadBalance.remainderMap.get(host);
+        }
+        if (thread - active != remainder.get()) {
+            remainder.set(thread - active);
             UserLoadBalance.activeChanged.set(true);
         }
         UserLoadBalance.rttMap.put(host, rtt);
