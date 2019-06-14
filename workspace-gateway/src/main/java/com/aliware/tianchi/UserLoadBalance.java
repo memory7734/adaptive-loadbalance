@@ -45,18 +45,35 @@ public class UserLoadBalance implements LoadBalance {
         if (activeChanged.get()) {
             changPerformanceByThread();
         }
-        if (totalRemainder.get() > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(totalRemainder.get());
+        int total = totalRemainder.get();
+        if (total > 0) {
+            int offset = ThreadLocalRandom.current().nextInt(total);
             for (Invoker<T> invoker : invokers) {
                 String host = invoker.getUrl().getHost();
-                offset -= remainderMap.getOrDefault(host, zero).get();
+                AtomicInteger remainder = remainderMap.getOrDefault(host, zero);
+                offset -= remainder.get();
                 if (offset < 0) {
-                    remainderMap.get(host).getAndDecrement();
+                    remainder.getAndDecrement();
                     totalRemainder.getAndDecrement();
                     return invoker;
                 }
             }
         }
+        long rttTotal = 0;
+        for (Map.Entry<String, Long> entry : rttMap.entrySet()) {
+            rttTotal += entry.getValue();
+        }
+        if (rttTotal > 0) {
+            long offset = ThreadLocalRandom.current().nextLong(rttTotal * (rttMap.size() - 1));
+            for (Invoker<T> invoker : invokers) {
+                offset -= rttTotal - rttMap.getOrDefault(invoker.getUrl().getHost(), 0L);
+                if (offset < 0) {
+                    totalRemainder.getAndDecrement();
+                    return invoker;
+                }
+            }
+        }
+
         Invoker<T> invoker = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
         AtomicInteger integer = remainderMap.get(invoker.getUrl().getHost());
         if (integer != null) integer.getAndDecrement();
