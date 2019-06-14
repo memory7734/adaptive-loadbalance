@@ -63,7 +63,7 @@ public class UserLoadBalance implements LoadBalance {
         for (Map.Entry<String, Long> entry : rttMap.entrySet()) {
             rttTotal += entry.getValue();
         }
-        if (rttTotal > 0) {
+        if (rttMap.size() > 2) {
             long offset = ThreadLocalRandom.current().nextLong(rttTotal * (rttMap.size() - 1));
             for (Invoker<T> invoker : invokers) {
                 offset -= rttTotal - rttMap.getOrDefault(invoker.getUrl().getHost(), 0L);
