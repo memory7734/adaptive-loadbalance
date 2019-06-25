@@ -22,62 +22,69 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 选手需要基于此类实现自己的负载均衡算法
  */
 public class UserLoadBalance implements LoadBalance {
+    static final int[] threadArray = new int[3];
+    static final int[] activeArray = new int[3];
+    static final long[] averageRttArray = {500, 500, 500};
+    static final long[] lastRttArray = {1000, 1000, 1000};
+    private int[] remainderArray = new int[3];
+    private int total = 0;
 
-    static final ConcurrentHashMap<String, Integer> threadMap = new ConcurrentHashMap<>();
-    static final ConcurrentHashMap<String, AtomicInteger> remainderMap = new ConcurrentHashMap<>();
-    static final ConcurrentHashMap<String, Long> rttMap = new ConcurrentHashMap<>();
     static final AtomicBoolean activeChanged = new AtomicBoolean(false);
-    private static final AtomicInteger totalRemainder = new AtomicInteger(0);
-    private static final AtomicInteger zero = new AtomicInteger(0);
 
-    private void changPerformanceByThread() {
-        if (activeChanged.compareAndSet(true, false)) {
-            int total = 0;
-            for (Map.Entry<String, AtomicInteger> entry : remainderMap.entrySet()) {
-                total += entry.getValue().get();
+    private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers, URL url, Invocation invocation) {
+        if (activeChanged.get()) {
+            if (activeChanged.compareAndSet(true, false)) {
+                int sum = 0;
+                for (int i = 0; i < 3; i++) {
+                    remainderArray[i] = threadArray[i] - activeArray[i];
+                    sum += remainderArray[i];
+                }
+                total = sum;
             }
-            totalRemainder.set(total);
         }
+        if (total > 0) {
+            int offset = ThreadLocalRandom.current().nextInt(total);
+            for (Invoker<T> invoker : invokers) {
+                int index = (invoker.getUrl().getPort() - 20870) / 10;
+                offset -= remainderArray[index];
+                if (offset < 0) {
+                    remainderArray[index]--;
+                    total--;
+                    return invoker;
+                }
+            }
+        }
+        Invoker<T> invoker = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        int index = (invoker.getUrl().getPort() - 20870) / 10;
+        total--;
+        remainderArray[index]--;
+        return invoker;
+    }
+
+    private <T> Invoker<T> selectByRtt(List<Invoker<T>> invokers, URL url, Invocation invocation) {
+        Invoker<T> result = null;
+        long minRtt = Long.MAX_VALUE;
+        for (Invoker<T> invoker : invokers) {
+            int index = (invoker.getUrl().getPort() - 20870) / 10;
+            if (lastRttArray[index] > averageRttArray[index] * 1.5) {
+                continue;
+            }
+            if (minRtt > averageRttArray[index]) {
+                minRtt = averageRttArray[index];
+                result = invoker;
+            }
+        }
+
+        if (result == null)
+            result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        return result;
     }
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        if (activeChanged.get()) {
-            changPerformanceByThread();
-        }
-        int total = totalRemainder.get();
-        if (total > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(total);
-            for (Invoker<T> invoker : invokers) {
-                String host = invoker.getUrl().getHost();
-                AtomicInteger remainder = remainderMap.getOrDefault(host, zero);
-                offset -= remainder.get();
-                if (offset < 0) {
-                    remainder.getAndDecrement();
-                    totalRemainder.getAndDecrement();
-                    return invoker;
-                }
-            }
-        }
-        long rttTotal = 0;
-        for (Map.Entry<String, Long> entry : rttMap.entrySet()) {
-            rttTotal += entry.getValue();
-        }
-        if (rttMap.size() > 2) {
-            long offset = ThreadLocalRandom.current().nextLong(rttTotal * (rttMap.size() - 1));
-            for (Invoker<T> invoker : invokers) {
-                offset -= rttTotal - rttMap.getOrDefault(invoker.getUrl().getHost(), 0L);
-                if (offset < 0) {
-                    totalRemainder.getAndDecrement();
-                    return invoker;
-                }
-            }
-        }
-
-        Invoker<T> invoker = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
-        AtomicInteger integer = remainderMap.get(invoker.getUrl().getHost());
-        if (integer != null) integer.getAndDecrement();
-        totalRemainder.getAndDecrement();
-        return invoker;
+        Invoker<T> byThread = selectByThread(invokers, url, invocation);
+        Invoker<T> byRtt = selectByRtt(invokers, url, invocation);
+        if (byRtt == byThread) return byRtt;
+        return ThreadLocalRandom.current().nextInt(2) == 0 ? byThread : byRtt;
     }
 }

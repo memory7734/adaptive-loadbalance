@@ -19,14 +19,25 @@ import java.util.concurrent.ConcurrentHashMap;
 public class CallbackServiceImpl implements CallbackService {
 
     public CallbackServiceImpl() {
-        String host = "provider-" + System.getProperty("quota");
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
                 if (!listeners.isEmpty()) {
+                    int port = TestServerFilter.getPort();
+                    if (port == 0) {
+                        String quota = System.getProperty("quota");
+                        if ("small".equalsIgnoreCase(quota)){
+                            port = 20880;
+                        } else if ("medium".equalsIgnoreCase(quota)) {
+                            port = 20870;
+                        } else if ("large".equalsIgnoreCase(quota)) {
+                            port = 20890;
+                        }
+                        TestServerFilter.setPort(port);
+                    }
                     for (Map.Entry<String, CallbackListener> entry : listeners.entrySet()) {
                         try {
-                            entry.getValue().receiveServerMsg(host + TestServerFilter.getActiveCount());
+                            entry.getValue().receiveServerMsg(port + TestServerFilter.getActiveCount());
                         } catch (Throwable t1) {
                             listeners.remove(entry.getKey());
                         }
@@ -37,10 +48,21 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     static void sendCallbackImmediately() {
-        String host = "provider-" + System.getProperty("quota");
+        int port = TestServerFilter.getPort();
+        if (port == 0) {
+            String quota = System.getProperty("quota");
+            if ("small".equalsIgnoreCase(quota)){
+                port = 20880;
+            } else if ("medium".equalsIgnoreCase(quota)) {
+                port = 20870;
+            } else if ("large".equalsIgnoreCase(quota)) {
+                port = 20890;
+            }
+            TestServerFilter.setPort(port);
+        }
         for (Map.Entry<String, CallbackListener> entry : listeners.entrySet()) {
             try {
-                entry.getValue().receiveServerMsg(host + TestServerFilter.getActiveCount());
+                entry.getValue().receiveServerMsg(port + TestServerFilter.getActiveCount());
             } catch (Throwable t1) {
                 listeners.remove(entry.getKey());
             }

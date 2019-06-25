@@ -24,36 +24,49 @@ public class TestServerFilter implements Filter {
     private static int activeThreads;
     private static long rtt;
     private static int threads = 0;
+    private static int port = 0;
+    private static long lastRtt = 1000;
 
     static String getActiveCount() {
-        return "#" + threads + "#" + activeThreads + "#" + rtt;
+        return "#" + threads + "#" + activeThreads + "#" + rtt + "#" + lastRtt;
     }
 
     static int getThreads() {
         return threads;
     }
 
+    static int getPort() {
+        return port;
+    }
+
+    static void setPort(int port) {
+        TestServerFilter.port = port;
+    }
+
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         Result result;
         long begin = System.currentTimeMillis();
-        URL url = URL.valueOf(invoker.getUrl().toIdentityString());
-        RpcStatus.beginCount(url, invocation.getMethodName());
+        URL url = invoker.getUrl();
         RpcStatus status = RpcStatus.getStatus(url);
+        RpcStatus.beginCount(url, invocation.getMethodName());
         if (init.get()) {
             if (init.compareAndSet(true, false)) {
                 threads = Integer.valueOf(invoker.getUrl().getParameter("threads"));
+                port = invoker.getUrl().getPort();
             }
         }
         try {
             result = invoker.invoke(invocation);
-            RpcStatus.endCount(url, invocation.getMethodName(), System.currentTimeMillis() - begin, true);
+            lastRtt = System.currentTimeMillis() - begin;
+            RpcStatus.endCount(url, invocation.getMethodName(), lastRtt, true);
             activeThreads = status.getActive();
             rtt = status.getAverageElapsed();
         } catch (Exception e) {
-            RpcStatus.endCount(url, invocation.getMethodName(), System.currentTimeMillis() - begin, false);
+            lastRtt = System.currentTimeMillis() - begin;
+            RpcStatus.endCount(url, invocation.getMethodName(), lastRtt, false);
             activeThreads = status.getActive();
-            rtt = 500;
+            rtt = status.getAverageElapsed();
             CallbackServiceImpl.sendCallbackImmediately();
             throw e;
         }
