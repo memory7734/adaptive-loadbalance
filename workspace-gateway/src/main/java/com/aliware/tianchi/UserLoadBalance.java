@@ -54,11 +54,7 @@ public class UserLoadBalance implements LoadBalance {
                 }
             }
         }
-        Invoker<T> invoker = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
-        int index = (invoker.getUrl().getPort() - 20870) / 10;
-        total--;
-        remainderArray[index]--;
-        return invoker;
+        return null;
     }
 
     private <T> Invoker<T> selectByRtt(List<Invoker<T>> invokers, URL url, Invocation invocation) {
@@ -79,14 +75,17 @@ public class UserLoadBalance implements LoadBalance {
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        Invoker<T> invoker = selectByRtt(invokers, url, invocation);
+        Invoker<T> invoker = selectByThread(invokers, url, invocation);
         if (invoker != null) {
-            int index = (invoker.getUrl().getPort() - 20870) / 10;
-            total--;
-            remainderArray[index]--;
-        } else {
-            invoker= selectByThread(invokers, url, invocation);
+            return invoker;
         }
+        invoker = selectByRtt(invokers, url, invocation);
+        if (invoker == null) {
+            invoker = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        }
+        int index = (invoker.getUrl().getPort() - 20870) / 10;
+        total--;
+        remainderArray[index]--;
         return invoker;
     }
 }
