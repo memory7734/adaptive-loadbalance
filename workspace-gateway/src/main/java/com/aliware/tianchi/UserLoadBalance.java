@@ -22,12 +22,11 @@ import java.util.concurrent.atomic.AtomicInteger;
  * 选手需要基于此类实现自己的负载均衡算法
  */
 public class UserLoadBalance implements LoadBalance {
-    static final int[] threadArray = new int[3];
-    static final int[] activeArray = new int[3];
-    static final long[] averageRttArray = {500, 500, 500};
-    static final long[] lastRttArray = {1000, 1000, 1000};
-    private volatile int[] remainderArray = new int[3];
-    private volatile int total = 0;
+    static int[] threadArray = new int[3];
+    static long[] averageRttArray = {500, 500, 500};
+    static long[] lastRttArray = {1000, 1000, 1000};
+    static AtomicInteger[] remainderArray = {new AtomicInteger(), new AtomicInteger(), new AtomicInteger()};
+    private AtomicInteger total = new AtomicInteger();
 
     static final AtomicBoolean activeChanged = new AtomicBoolean(false);
 
@@ -36,21 +35,19 @@ public class UserLoadBalance implements LoadBalance {
             if (activeChanged.compareAndSet(true, false)) {
                 int sum = 0;
                 for (int i = 0; i < 3; i++) {
-                    int temp = threadArray[i] - activeArray[i];
-                    remainderArray[i] = temp;
-                    sum += temp;
+                    sum += remainderArray[i].get();
                 }
-                total = sum;
+                total.set(sum);
             }
         }
-        if (total > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(total);
+        if (total.get() > 0) {
+            int offset = ThreadLocalRandom.current().nextInt(total.get());
             for (Invoker<T> invoker : invokers) {
                 int index = (invoker.getUrl().getPort() - 20870) / 10;
-                offset -= remainderArray[index];
+                offset -= remainderArray[index].get();
                 if (offset < 0) {
-                    remainderArray[index]--;
-                    total--;
+                    remainderArray[index].getAndDecrement();
+                    total.getAndDecrement();
                     return invoker;
                 }
             }
@@ -86,8 +83,8 @@ public class UserLoadBalance implements LoadBalance {
             invoker = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
         }
         int index = (invoker.getUrl().getPort() - 20870) / 10;
-        total--;
-        remainderArray[index]--;
+        total.getAndDecrement();
+        remainderArray[index].getAndDecrement();
         return invoker;
     }
 }

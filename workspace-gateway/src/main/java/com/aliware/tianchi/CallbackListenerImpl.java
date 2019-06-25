@@ -28,7 +28,7 @@ public class CallbackListenerImpl implements CallbackListener {
         UserLoadBalance.threadArray[index] = thread;
         for (; ; ) {
             if (UserLoadBalance.activeChanged.compareAndSet(false, true)) {
-                UserLoadBalance.activeArray[index] = active;
+                UserLoadBalance.remainderArray[index].set(thread - active);
                 break;
             }
         }
