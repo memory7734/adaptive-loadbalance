@@ -60,7 +60,7 @@ public class UserLoadBalance implements LoadBalance {
         long minRtt = Long.MAX_VALUE;
         for (Invoker<T> invoker : invokers) {
             int index = (invoker.getUrl().getPort() - 20870) / 10;
-            if (lastRttArray[index] >= averageRttArray[index] * 2) {
+            if (lastRttArray[index] >= averageRttArray[index] * 3) {
                 continue;
             }
             if (minRtt > averageRttArray[index]) {
@@ -76,7 +76,7 @@ public class UserLoadBalance implements LoadBalance {
         Invoker<T> invoker = selectByThread(invokers);
         if (invoker != null) {
             int index = (invoker.getUrl().getPort() - 20870) / 10;
-            if (lastRttArray[index] < averageRttArray[index] * 2) return invoker;
+            if (lastRttArray[index] < averageRttArray[index] * 3) return invoker;
         }
         invoker = selectByRtt(invokers);
         if (invoker == null) {
