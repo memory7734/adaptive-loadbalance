@@ -17,7 +17,7 @@ public class CallbackListenerImpl implements CallbackListener {
         String[] tokens = msg.split("#");
         if (tokens.length < 4) return;
         int port = Integer.valueOf(tokens[0]);
-        int thread = Integer.valueOf(tokens[1]);
+        int thread = Integer.valueOf(tokens[1]) * 4 / 5;
         int active = Integer.valueOf(tokens[2]);
         long rtt = Long.valueOf(tokens[3]);
         long lastRtt = Long.valueOf(tokens[4]);
@@ -26,8 +26,8 @@ public class CallbackListenerImpl implements CallbackListener {
         UserLoadBalance.averageRttArray[index] = rtt;
         UserLoadBalance.lastRttArray[index] = lastRtt;
         UserLoadBalance.threadArray[index] = thread;
-        for (;;){
-            if(UserLoadBalance.activeChanged.compareAndSet(false, true)){
+        for (; ; ) {
+            if (UserLoadBalance.activeChanged.compareAndSet(false, true)) {
                 UserLoadBalance.activeArray[index] = active;
                 break;
             }
