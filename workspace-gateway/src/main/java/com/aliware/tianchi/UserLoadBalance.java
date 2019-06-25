@@ -23,14 +23,15 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class UserLoadBalance implements LoadBalance {
     static int[] threadArray = new int[3];
-    static long[] averageRttArray = {500, 500, 500};
-    static long[] lastRttArray = {1000, 1000, 1000};
     static AtomicInteger[] remainderArray = {new AtomicInteger(), new AtomicInteger(), new AtomicInteger()};
+    static long[] avgRttArray = new long[3];
+    static long[] lastRttArray = new long[3];
     private AtomicInteger total = new AtomicInteger();
 
     static final AtomicBoolean activeChanged = new AtomicBoolean(false);
 
-    private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers) {
+    @Override
+    public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
         if (activeChanged.get()) {
             if (activeChanged.compareAndSet(true, false)) {
                 int sum = 0;
@@ -44,6 +45,7 @@ public class UserLoadBalance implements LoadBalance {
             int offset = ThreadLocalRandom.current().nextInt(total.get());
             for (Invoker<T> invoker : invokers) {
                 int index = (invoker.getUrl().getPort() - 20870) / 10;
+                if (remainderArray[index].get() < threadArray[index] / 10) continue;
                 offset -= remainderArray[index].get();
                 if (offset < 0) {
                     remainderArray[index].getAndDecrement();
@@ -52,39 +54,24 @@ public class UserLoadBalance implements LoadBalance {
                 }
             }
         }
-        return null;
-    }
-
-    private <T> Invoker<T> selectByRtt(List<Invoker<T>> invokers) {
         Invoker<T> result = null;
         long minRtt = Long.MAX_VALUE;
         for (Invoker<T> invoker : invokers) {
-            int index = (invoker.getUrl().getPort() - 20870) / 10;
-            if (lastRttArray[index] >= averageRttArray[index] * 3) {
-                continue;
+            int i = (invoker.getUrl().getPort() - 20870) / 10;
+            if (avgRttArray[i] == 0) {
+                result = null;
+                break;
             }
-            if (minRtt > averageRttArray[index]) {
-                minRtt = averageRttArray[index];
+            if (avgRttArray[i] * 2 < lastRttArray[i]) continue;
+            if (avgRttArray[i] < minRtt) {
+                minRtt = avgRttArray[i];
                 result = invoker;
             }
         }
-        return result;
-    }
-
-    @Override
-    public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        Invoker<T> invoker = selectByThread(invokers);
-        if (invoker != null) {
-            int index = (invoker.getUrl().getPort() - 20870) / 10;
-            if (lastRttArray[index] < averageRttArray[index] * 3) return invoker;
-        }
-        invoker = selectByRtt(invokers);
-        if (invoker == null) {
-            invoker = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
-        }
-        int index = (invoker.getUrl().getPort() - 20870) / 10;
-        total.getAndDecrement();
+        if (result == null) result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        int index = (result.getUrl().getPort() - 20870) / 10;
         remainderArray[index].getAndDecrement();
-        return invoker;
+        total.getAndDecrement();
+        return result;
     }
 }
