@@ -44,7 +44,7 @@ public class CallbackServiceImpl implements CallbackService {
                     }
                 }
             }
-        }, 0, 5);
+        }, 0, 1);
     }
 
     static void sendCallbackImmediately() {

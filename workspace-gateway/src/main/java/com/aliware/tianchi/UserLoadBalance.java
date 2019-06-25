@@ -26,18 +26,19 @@ public class UserLoadBalance implements LoadBalance {
     static final int[] activeArray = new int[3];
     static final long[] averageRttArray = {500, 500, 500};
     static final long[] lastRttArray = {1000, 1000, 1000};
-    private int[] remainderArray = new int[3];
-    private int total = 0;
+    private volatile int[] remainderArray = new int[3];
+    private volatile int total = 0;
 
     static final AtomicBoolean activeChanged = new AtomicBoolean(false);
 
-    private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers, URL url, Invocation invocation) {
+    private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers) {
         if (activeChanged.get()) {
             if (activeChanged.compareAndSet(true, false)) {
                 int sum = 0;
                 for (int i = 0; i < 3; i++) {
-                    remainderArray[i] = threadArray[i] - activeArray[i];
-                    sum += remainderArray[i];
+                    int temp = threadArray[i] - activeArray[i];
+                    remainderArray[i] = temp;
+                    sum += temp;
                 }
                 total = sum;
             }
@@ -57,12 +58,12 @@ public class UserLoadBalance implements LoadBalance {
         return null;
     }
 
-    private <T> Invoker<T> selectByRtt(List<Invoker<T>> invokers, URL url, Invocation invocation) {
+    private <T> Invoker<T> selectByRtt(List<Invoker<T>> invokers) {
         Invoker<T> result = null;
         long minRtt = Long.MAX_VALUE;
         for (Invoker<T> invoker : invokers) {
             int index = (invoker.getUrl().getPort() - 20870) / 10;
-            if (lastRttArray[index] > averageRttArray[index] * 1.5) {
+            if ((lastRttArray[index] >> 1) >= averageRttArray[index]) {
                 continue;
             }
             if (minRtt > averageRttArray[index]) {
@@ -75,11 +76,11 @@ public class UserLoadBalance implements LoadBalance {
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        Invoker<T> invoker = selectByThread(invokers, url, invocation);
+        Invoker<T> invoker = selectByThread(invokers);
         if (invoker != null) {
             return invoker;
         }
-        invoker = selectByRtt(invokers, url, invocation);
+        invoker = selectByRtt(invokers);
         if (invoker == null) {
             invoker = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
         }
