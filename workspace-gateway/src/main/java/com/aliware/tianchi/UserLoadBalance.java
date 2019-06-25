@@ -74,17 +74,19 @@ public class UserLoadBalance implements LoadBalance {
                 result = invoker;
             }
         }
-
-        if (result == null)
-            result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
         return result;
     }
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        Invoker<T> byThread = selectByThread(invokers, url, invocation);
-        Invoker<T> byRtt = selectByRtt(invokers, url, invocation);
-        if (byRtt == byThread) return byRtt;
-        return ThreadLocalRandom.current().nextInt(2) == 0 ? byThread : byRtt;
+        Invoker<T> invoker = selectByRtt(invokers, url, invocation);
+        if (invoker != null) {
+            int index = (invoker.getUrl().getPort() - 20870) / 10;
+            total--;
+            remainderArray[index]--;
+        } else {
+            invoker= selectByThread(invokers, url, invocation);
+        }
+        return invoker;
     }
 }
