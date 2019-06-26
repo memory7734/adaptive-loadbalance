@@ -23,37 +23,38 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public class UserLoadBalance implements LoadBalance {
     static int[] threadArray = new int[3];
-    static AtomicInteger[] remainderArray = {new AtomicInteger(), new AtomicInteger(), new AtomicInteger()};
+    static int[] remainderArray = new int[3];
     static long[] avgRttArray = new long[3];
     static long[] lastRttArray = new long[3];
-    private AtomicInteger total = new AtomicInteger();
+    static long[] succeededTaskArray = new long[3];
+    static long[] failedTaskArray = new long[3];
+    static boolean[] catchExceptionArray = new boolean[3];
+    static long[] requestLimitTime = new long[3];
+    private int total = 0;
 
-    static final AtomicBoolean activeChanged = new AtomicBoolean(false);
+    static boolean activeChanged = false;
 
-    @Override
-    public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        if (activeChanged.get()) {
-            if (activeChanged.compareAndSet(true, false)) {
-                int sum = 0;
-                for (int i = 0; i < 3; i++) {
-                    sum += remainderArray[i].get();
-                }
-                total.set(sum);
+    private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers) {
+        if (activeChanged) {
+            int sum = 0;
+            for (int x : remainderArray) {
+                sum += x;
             }
+            total = sum;
         }
-        if (total.get() > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(total.get());
+        if (total > 0) {
+            int offset = ThreadLocalRandom.current().nextInt(total);
             for (Invoker<T> invoker : invokers) {
                 int index = (invoker.getUrl().getPort() - 20870) / 10;
-                if (remainderArray[index].get() < threadArray[index] / 10) continue;
-                offset -= remainderArray[index].get();
-                if (offset < 0) {
-                    remainderArray[index].getAndDecrement();
-                    total.getAndDecrement();
-                    return invoker;
-                }
+                if (remainderArray[index] < (threadArray[index] >> 1)) continue;
+                offset -= remainderArray[index];
+                if (offset < 0) return invoker;
             }
         }
+        return null;
+    }
+
+    private <T> Invoker<T> selectByRtt(List<Invoker<T>> invokers) {
         Invoker<T> result = null;
         long minRtt = Long.MAX_VALUE;
         for (Invoker<T> invoker : invokers) {
@@ -63,15 +64,29 @@ public class UserLoadBalance implements LoadBalance {
                 break;
             }
             if (avgRttArray[i] * 2 < lastRttArray[i]) continue;
+            if (System.currentTimeMillis() - requestLimitTime[i] <= 5) continue;
             if (avgRttArray[i] < minRtt) {
                 minRtt = avgRttArray[i];
                 result = invoker;
             }
         }
-        if (result == null) result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        return result;
+    }
+
+    @Override
+    public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
+        Invoker<T> result;
+        result = selectByThread(invokers);
+        if (result == null) {
+            selectByRtt(invokers);
+        }
+        if (result == null) {
+            result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+            System.out.println("随机选择结果");
+        }
         int index = (result.getUrl().getPort() - 20870) / 10;
-        remainderArray[index].getAndDecrement();
-        total.getAndDecrement();
+        remainderArray[index]--;
+        total--;
         return result;
     }
 }
