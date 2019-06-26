@@ -5,11 +5,9 @@ import org.apache.dubbo.common.URL;
 import org.apache.dubbo.common.extension.Activate;
 import org.apache.dubbo.rpc.*;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * @author daofeng.xjf
@@ -20,56 +18,108 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Activate(group = Constants.PROVIDER)
 public class TestServerFilter implements Filter {
-    private static final AtomicBoolean init = new AtomicBoolean(true);
-    private static int activeThreads;
-    private static long rtt;
+    private static RpcStatus status = null;
     private static int threads = 0;
     private static int port = 0;
+    private Timer timer = new Timer();
+
+    private static int activeThreads;
+
+    private static long avgRtt;
     private static long lastRtt = 1000;
+    private static long succeededTask = 0;
+    private static long failedTask = 0;
+
+    private static boolean catchException = false;
+
+    public static ConcurrentLinkedDeque<Long> rttTimeout = new ConcurrentLinkedDeque<>();
+
+    private static void initPort() {
+        if (port == 0) {
+            String quota = System.getProperty("quota");
+            if ("small".equalsIgnoreCase(quota)) {
+                port = 20880;
+            } else if ("medium".equalsIgnoreCase(quota)) {
+                port = 20870;
+            } else if ("large".equalsIgnoreCase(quota)) {
+                port = 20890;
+            }
+        }
+    }
 
     static String getActiveCount() {
-        return "#" + threads + "#" + activeThreads + "#" + rtt + "#" + lastRtt;
+        initPort();
+        StringBuilder builder = new StringBuilder();
+        builder.append(port);
+        builder.append("#");
+        builder.append(threads);
+        builder.append("#");
+        builder.append(activeThreads);
+        builder.append("#");
+        builder.append(avgRtt);
+        builder.append("#");
+        builder.append(lastRtt);
+        builder.append("#");
+        builder.append(succeededTask);
+        builder.append("#");
+        builder.append(failedTask);
+        builder.append("#");
+        builder.append(catchException);
+        return builder.toString();
     }
 
     static int getThreads() {
         return threads;
     }
 
-    static int getPort() {
-        return port;
-    }
-
-    static void setPort(int port) {
-        TestServerFilter.port = port;
-    }
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
-        Result result;
-        long begin = System.currentTimeMillis();
         URL url = invoker.getUrl();
-        RpcStatus status = RpcStatus.getStatus(url);
-        RpcStatus.beginCount(url, invocation.getMethodName());
-        if (init.get()) {
-            if (init.compareAndSet(true, false)) {
-                threads = Integer.valueOf(invoker.getUrl().getParameter("threads"));
-                port = invoker.getUrl().getPort();
+        if (status == null) {
+            synchronized (TestServerFilter.class) {
+                if (status == null) {
+                    initPort();
+                    status = RpcStatus.getStatus(url);
+                    threads = Integer.valueOf(url.getParameter("threads"));
+                    port = url.getPort();
+                    timer.schedule(new TimerTask() {
+
+                        @Override
+                        public void run() {
+                            long now = System.currentTimeMillis();
+                            if (lastRtt > status.getSucceededAverageElapsed() * 2) {
+                                rttTimeout.addLast(now);
+                            }
+                            while (!rttTimeout.isEmpty()) {
+                                long last = rttTimeout.getFirst();
+                                if (now - last > 5) rttTimeout.removeFirst();
+                                else break;
+                            }
+                        }
+                    }, 0, 1);
+                }
             }
         }
+        Result result;
+        long begin = System.currentTimeMillis();
+        RpcStatus.beginCount(url, invocation.getMethodName());
         try {
             result = invoker.invoke(invocation);
             lastRtt = System.currentTimeMillis() - begin;
             RpcStatus.endCount(url, invocation.getMethodName(), lastRtt, true);
-            activeThreads = status.getActive();
-            rtt = status.getAverageElapsed();
+            catchException = false;
         } catch (Exception e) {
             lastRtt = System.currentTimeMillis() - begin;
             RpcStatus.endCount(url, invocation.getMethodName(), lastRtt, false);
-            activeThreads = status.getActive();
-            rtt = status.getAverageElapsed();
-            CallbackServiceImpl.sendCallbackImmediately();
+            catchException = true;
             throw e;
         }
+        activeThreads = status.getActive();
+        avgRtt = status.getAverageElapsed();
+        succeededTask = status.getSucceeded();
+        failedTask = status.getFailed();
+        if (catchException) CallbackServiceImpl.sendCallbackImmediately();
         return result;
     }
 
