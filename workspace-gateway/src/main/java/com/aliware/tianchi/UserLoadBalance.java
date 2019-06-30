@@ -27,7 +27,7 @@ public class UserLoadBalance implements LoadBalance {
     // static boolean[] catchExceptionArray = new boolean[3];
     static long[] requestLimitTime = new long[3];
 
-    static boolean activeChanged = false;
+    // static boolean activeChanged = false;
 
     private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers) {
         int sum = 0;

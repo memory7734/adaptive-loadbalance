@@ -20,12 +20,12 @@ public class TestClientFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         Result result = null;
-        int index = (invoker.getUrl().getPort() - 20870) / 10;
+        // int index = (invoker.getUrl().getPort() - 20870) / 10;
         try {
             result = invoker.invoke(invocation);
 
         } catch (Exception e) {
-            UserLoadBalance.requestLimitTime[index] = System.currentTimeMillis();
+            // UserLoadBalance.requestLimitTime[index] = System.currentTimeMillis();
             throw e;
         }
         return result;
@@ -33,10 +33,10 @@ public class TestClientFilter implements Filter {
 
     @Override
     public Result onResponse(Result result, Invoker<?> invoker, Invocation invocation) {
-        if (result.hasException()) {
-            int index = (invoker.getUrl().getPort() - 20870) / 10;
-            UserLoadBalance.requestLimitTime[index] = System.currentTimeMillis();
-        }
+        // if (result.hasException()) {
+        //     int index = (invoker.getUrl().getPort() - 20870) / 10;
+        //     UserLoadBalance.requestLimitTime[index] = System.currentTimeMillis();
+        // }
         return result;
     }
 }
