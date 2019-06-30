@@ -32,7 +32,7 @@ public class CallbackServiceImpl implements CallbackService {
                     }
                 }
             }
-        }, 0, 1);
+        }, 0, 5);
     }
 
     static void sendCallbackImmediately() {
