@@ -58,8 +58,8 @@ public class TestServerFilter implements Filter {
         builder.append(activeThreads);
         builder.append("#");
         builder.append(tps);
-        builder.append("#");
-        builder.append(lastRtt);
+        // builder.append("#");
+        // builder.append(lastRtt);
         // builder.append("#");
         // builder.append(succeededTask);
         // builder.append("#");

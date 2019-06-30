@@ -19,16 +19,17 @@ import org.apache.dubbo.rpc.RpcException;
 public class TestClientFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
-        Result result = null;
+        // Result result = null;
         // int index = (invoker.getUrl().getPort() - 20870) / 10;
         try {
-            result = invoker.invoke(invocation);
+            // result = invoker.invoke(invocation);
+            return invoker.invoke(invocation);
 
         } catch (Exception e) {
             // UserLoadBalance.requestLimitTime[index] = System.currentTimeMillis();
             throw e;
         }
-        return result;
+        // return result;
     }
 
     @Override
