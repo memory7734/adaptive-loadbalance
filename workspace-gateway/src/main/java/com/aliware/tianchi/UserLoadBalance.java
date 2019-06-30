@@ -7,11 +7,7 @@ import org.apache.dubbo.rpc.RpcException;
 import org.apache.dubbo.rpc.cluster.LoadBalance;
 
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author daofeng.xjf
@@ -24,29 +20,26 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class UserLoadBalance implements LoadBalance {
     static int[] threadArray = new int[3];
     static int[] remainderArray = new int[3];
-    static long[] avgRttArray = new long[3];
+    static long[] tpsArray = new long[3];
     static long[] lastRttArray = new long[3];
-    static long[] succeededTaskArray = new long[3];
-    static long[] failedTaskArray = new long[3];
-    static boolean[] catchExceptionArray = new boolean[3];
+    // static long[] succeededTaskArray = new long[3];
+    // static long[] failedTaskArray = new long[3];
+    // static boolean[] catchExceptionArray = new boolean[3];
     static long[] requestLimitTime = new long[3];
-    private int total = 0;
 
     static boolean activeChanged = false;
 
     private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers) {
-        if (activeChanged) {
-            int sum = 0;
-            for (int x : remainderArray) {
-                sum += x;
-            }
-            total = sum;
+        int sum = 0;
+        for (int i = 0; i < remainderArray.length; i++) {
+            if (remainderArray[i] < (threadArray[i] / 2) || remainderArray[i] <= 0) continue;
+            sum += remainderArray[i];
         }
-        if (total > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(total);
+        if (sum > 0) {
+            int offset = ThreadLocalRandom.current().nextInt(sum);
             for (Invoker<T> invoker : invokers) {
                 int index = (invoker.getUrl().getPort() - 20870) / 10;
-                if (remainderArray[index] < (threadArray[index] >> 1)) continue;
+                if (remainderArray[index] < threadArray[index] / 2 || remainderArray[index] <= 0) continue;
                 offset -= remainderArray[index];
                 if (offset < 0) return invoker;
             }
@@ -54,39 +47,40 @@ public class UserLoadBalance implements LoadBalance {
         return null;
     }
 
-    private <T> Invoker<T> selectByRtt(List<Invoker<T>> invokers) {
-        Invoker<T> result = null;
-        long minRtt = Long.MAX_VALUE;
-        for (Invoker<T> invoker : invokers) {
-            int i = (invoker.getUrl().getPort() - 20870) / 10;
-            if (avgRttArray[i] == 0) {
-                result = null;
-                break;
-            }
-            if (avgRttArray[i] * 2 < lastRttArray[i]) continue;
-            if (System.currentTimeMillis() - requestLimitTime[i] <= 5) continue;
-            if (avgRttArray[i] < minRtt) {
-                minRtt = avgRttArray[i];
-                result = invoker;
+    private <T> Invoker<T> selectByTps(List<Invoker<T>> invokers) {
+        long sum = 0;
+        long[] weight = new long[tpsArray.length];
+        for (int i = 0; i < tpsArray.length; i++) {
+            weight[i] = tpsArray[i] * remainderArray[i];
+            sum += weight[i];
+        }
+        if (sum > 0) {
+            long offset = ThreadLocalRandom.current().nextLong(sum);
+            for (Invoker<T> invoker : invokers) {
+                int index = (invoker.getUrl().getPort() - 20870) / 10;
+                offset -= weight[index];
+                if (offset < 0) return invoker;
             }
         }
-        return result;
+        return null;
     }
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
         Invoker<T> result;
         result = selectByThread(invokers);
+        // if (result != null) System.out.println("Thread选择结果");
         if (result == null) {
-            selectByRtt(invokers);
+            result = selectByTps(invokers);
+            // if (result != null) System.out.println("RTT选择结果");
         }
         if (result == null) {
             result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
-            System.out.println("随机选择结果");
+            // System.out.println("随机选择结果");
         }
         int index = (result.getUrl().getPort() - 20870) / 10;
         remainderArray[index]--;
-        total--;
+        // System.out.println(remainderArray[index] + "/" + threadArray[index] + "/" + tpsArray[index] + "/" + lastRttArray[index]);
         return result;
     }
 }

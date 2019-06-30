@@ -18,19 +18,20 @@ import java.util.concurrent.ConcurrentLinkedDeque;
  */
 @Activate(group = Constants.PROVIDER)
 public class TestServerFilter implements Filter {
-    private static RpcStatus status = null;
+    private static Status status = null;
     private static int threads = 0;
     private static int port = 0;
     private Timer timer = new Timer();
+    private Timer change = new Timer();
 
     private static int activeThreads;
 
-    private static long avgRtt;
+    private static long tps;
     private static long lastRtt = 1000;
-    private static long succeededTask = 0;
-    private static long failedTask = 0;
+    // private static long succeededTask = 0;
+    // private static long failedTask = 0;
 
-    private static boolean catchException = false;
+    // private static boolean catchException = false;
 
     public static ConcurrentLinkedDeque<Long> rttTimeout = new ConcurrentLinkedDeque<>();
 
@@ -56,15 +57,15 @@ public class TestServerFilter implements Filter {
         builder.append("#");
         builder.append(activeThreads);
         builder.append("#");
-        builder.append(avgRtt);
+        builder.append(tps);
         builder.append("#");
         builder.append(lastRtt);
-        builder.append("#");
-        builder.append(succeededTask);
-        builder.append("#");
-        builder.append(failedTask);
-        builder.append("#");
-        builder.append(catchException);
+        // builder.append("#");
+        // builder.append(succeededTask);
+        // builder.append("#");
+        // builder.append(failedTask);
+        // builder.append("#");
+        // builder.append(catchException);
         return builder.toString();
     }
 
@@ -80,46 +81,53 @@ public class TestServerFilter implements Filter {
             synchronized (TestServerFilter.class) {
                 if (status == null) {
                     initPort();
-                    status = RpcStatus.getStatus(url);
+                    status = Status.getStatus(url);
                     threads = Integer.valueOf(url.getParameter("threads"));
                     port = url.getPort();
-                    timer.schedule(new TimerTask() {
-
+                    // timer.schedule(new TimerTask() {
+                    //
+                    //     @Override
+                    //     public void run() {
+                    //         long now = System.currentTimeMillis();
+                    //         if (lastRtt > status.getSucceededMaxElapsed() * 10) {
+                    //             rttTimeout.addLast(now);
+                    //         }
+                    //         while (!rttTimeout.isEmpty()) {
+                    //             long last = rttTimeout.getFirst();
+                    //             if (now - last > 5) rttTimeout.removeFirst();
+                    //             else break;
+                    //         }
+                    //         // System.out.println(rttTimeout.size());
+                    //     }
+                    // }, 0, 1);
+                    change.schedule(new TimerTask() {
                         @Override
                         public void run() {
-                            long now = System.currentTimeMillis();
-                            if (lastRtt > status.getSucceededAverageElapsed() * 2) {
-                                rttTimeout.addLast(now);
-                            }
-                            while (!rttTimeout.isEmpty()) {
-                                long last = rttTimeout.getFirst();
-                                if (now - last > 5) rttTimeout.removeFirst();
-                                else break;
-                            }
+                            Status.resetElapsed(url);
                         }
-                    }, 0, 1);
+                    }, 6000, 6000);
                 }
             }
         }
         Result result;
         long begin = System.currentTimeMillis();
-        RpcStatus.beginCount(url, invocation.getMethodName());
+        Status.beginCount(url);
         try {
             result = invoker.invoke(invocation);
             lastRtt = System.currentTimeMillis() - begin;
-            RpcStatus.endCount(url, invocation.getMethodName(), lastRtt, true);
-            catchException = false;
+            Status.endCount(url, lastRtt, true);
+            // catchException = false;
         } catch (Exception e) {
             lastRtt = System.currentTimeMillis() - begin;
-            RpcStatus.endCount(url, invocation.getMethodName(), lastRtt, false);
-            catchException = true;
+            Status.endCount(url, lastRtt, false);
+            // catchException = true;
             throw e;
         }
         activeThreads = status.getActive();
-        avgRtt = status.getAverageElapsed();
-        succeededTask = status.getSucceeded();
-        failedTask = status.getFailed();
-        if (catchException) CallbackServiceImpl.sendCallbackImmediately();
+        tps = status.getAverageTps();
+        // succeededTask = status.getSucceeded();
+        // failedTask = status.getFailed();
+        // if (catchException) CallbackServiceImpl.sendCallbackImmediately();
         return result;
     }
 

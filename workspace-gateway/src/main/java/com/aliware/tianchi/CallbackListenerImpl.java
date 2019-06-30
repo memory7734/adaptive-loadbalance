@@ -2,8 +2,6 @@ package com.aliware.tianchi;
 
 import org.apache.dubbo.rpc.listener.CallbackListener;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * @author daofeng.xjf
  * <p>
@@ -21,21 +19,22 @@ public class CallbackListenerImpl implements CallbackListener {
         int port = Integer.valueOf(tokens[0]);
         int thread = Integer.valueOf(tokens[1]);
         int active = Integer.valueOf(tokens[2]);
-        long avgRtt = Long.valueOf(tokens[3]);
+        long tps = Long.valueOf(tokens[3]);
         long lastRtt = Long.valueOf(tokens[4]);
         long succeededTask = Long.valueOf(tokens[5]);
         long failedTask = Long.valueOf(tokens[5]);
         boolean catchException = Boolean.valueOf(tokens[5]);
         int index = (port - 20870) / 10;
-
         UserLoadBalance.threadArray[index] = thread;
         UserLoadBalance.remainderArray[index] = thread - active;
         UserLoadBalance.lastRttArray[index] = lastRtt;
-        UserLoadBalance.avgRttArray[index] = avgRtt;
-        UserLoadBalance.succeededTaskArray[index] = succeededTask;
-        UserLoadBalance.failedTaskArray[index] = failedTask;
-        UserLoadBalance.catchExceptionArray[index] = catchException;
+        UserLoadBalance.tpsArray[index] = tps;
+        // UserLoadBalance.succeededTaskArray[index] = succeededTask;
+        // UserLoadBalance.failedTaskArray[index] = failedTask;
+        // UserLoadBalance.catchExceptionArray[index] = catchException;
         UserLoadBalance.activeChanged = true;
+        // if (thread - active < 100) System.out.printf(msg);
+
     }
 
 }
