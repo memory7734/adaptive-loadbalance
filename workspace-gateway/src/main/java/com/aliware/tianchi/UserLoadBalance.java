@@ -21,11 +21,12 @@ public class UserLoadBalance implements LoadBalance {
     static int[] threadArray = new int[3];
     static int[] remainderArray = new int[3];
     static long[] tpsArray = new long[3];
-    static long[] lastRttArray = new long[3];
+    static long[] weightArray = new long[3];
+    // static long[] lastRttArray = new long[3];
     // static long[] succeededTaskArray = new long[3];
     // static long[] failedTaskArray = new long[3];
     // static boolean[] catchExceptionArray = new boolean[3];
-    static long[] requestLimitTime = new long[3];
+    // static long[] requestLimitTime = new long[3];
 
     // static boolean activeChanged = false;
 
@@ -49,16 +50,14 @@ public class UserLoadBalance implements LoadBalance {
 
     private <T> Invoker<T> selectByTps(List<Invoker<T>> invokers) {
         long sum = 0;
-        long[] weight = new long[tpsArray.length];
-        for (int i = 0; i < tpsArray.length; i++) {
-            weight[i] = tpsArray[i] * remainderArray[i];
-            sum += weight[i];
+        for (long x : weightArray) {
+            sum += x;
         }
         if (sum > 0) {
             long offset = ThreadLocalRandom.current().nextLong(sum);
             for (Invoker<T> invoker : invokers) {
                 int index = (invoker.getUrl().getPort() - 20870) / 10;
-                offset -= weight[index];
+                offset -= weightArray[index];
                 if (offset < 0) return invoker;
             }
         }
@@ -69,17 +68,15 @@ public class UserLoadBalance implements LoadBalance {
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
         Invoker<T> result;
         result = selectByThread(invokers);
-        // if (result != null) System.out.println("Thread选择结果");
         if (result == null) {
             result = selectByTps(invokers);
-            // if (result != null) System.out.println("RTT选择结果");
         }
         if (result == null) {
             result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
-            // System.out.println("随机选择结果");
         }
         int index = (result.getUrl().getPort() - 20870) / 10;
         remainderArray[index]--;
+        weightArray[index] -= tpsArray[index];
         // System.out.println(remainderArray[index] + "/" + threadArray[index] + "/" + tpsArray[index] + "/" + lastRttArray[index]);
         return result;
     }
