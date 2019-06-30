@@ -32,7 +32,7 @@ public class CallbackListenerImpl implements CallbackListener {
         // UserLoadBalance.succeededTaskArray[index] = succeededTask;
         // UserLoadBalance.failedTaskArray[index] = failedTask;
         // UserLoadBalance.catchExceptionArray[index] = catchException;
-        UserLoadBalance.activeChanged = true;
+        // UserLoadBalance.activeChanged = true;
         // if (thread - active < 100) System.out.printf(msg);
 
     }
