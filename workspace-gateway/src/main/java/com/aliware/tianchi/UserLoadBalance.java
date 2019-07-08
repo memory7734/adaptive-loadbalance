@@ -7,6 +7,7 @@ import org.apache.dubbo.rpc.RpcException;
 import org.apache.dubbo.rpc.cluster.LoadBalance;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -66,18 +67,22 @@ public class UserLoadBalance implements LoadBalance {
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        Invoker<T> result;
-        result = selectByThread(invokers);
-        if (result == null) {
-            result = selectByTps(invokers);
-        }
-        if (result == null) {
-            result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
-        }
-        int index = (result.getUrl().getPort() - 20870) / 10;
-        remainderArray[index]--;
-        weightArray[index] -= tpsArray[index];
+        return CompletableFuture.supplyAsync(() -> {
+            Invoker<T> result;
+            result = selectByThread(invokers);
+            if (result == null) {
+                result = selectByTps(invokers);
+            }
+            if (result == null) {
+                result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+            }
+            int index = (result.getUrl().getPort() - 20870) / 10;
+            remainderArray[index]--;
+            weightArray[index] -= tpsArray[index];
+            return result;
+        }).join();
+
         // System.out.println(remainderArray[index] + "/" + threadArray[index] + "/" + tpsArray[index] + "/" + lastRttArray[index]);
-        return result;
+        // return result;
     }
 }
