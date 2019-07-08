@@ -25,25 +25,16 @@ public class CallbackServiceImpl implements CallbackService {
                 if (!listeners.isEmpty()) {
                     for (Map.Entry<String, CallbackListener> entry : listeners.entrySet()) {
                         try {
-                            entry.getValue().receiveServerMsg(TestServerFilter.getActiveCount());
+                            entry.getValue().receiveServerMsg(new Date().toString());
                         } catch (Throwable t1) {
                             listeners.remove(entry.getKey());
                         }
                     }
                 }
             }
-        }, 0, 5);
+        }, 0, 500);
     }
 
-    static void sendCallbackImmediately() {
-        for (Map.Entry<String, CallbackListener> entry : listeners.entrySet()) {
-            try {
-                entry.getValue().receiveServerMsg(TestServerFilter.getActiveCount());
-            } catch (Throwable t1) {
-                listeners.remove(entry.getKey());
-            }
-        }
-    }
 
     private Timer timer = new Timer();
 
