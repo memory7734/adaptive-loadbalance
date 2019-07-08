@@ -67,22 +67,17 @@ public class UserLoadBalance implements LoadBalance {
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        return CompletableFuture.supplyAsync(() -> {
-            Invoker<T> result;
-            result = selectByThread(invokers);
-            if (result == null) {
-                result = selectByTps(invokers);
-            }
-            if (result == null) {
-                result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
-            }
-            int index = (result.getUrl().getPort() - 20870) / 10;
-            remainderArray[index]--;
-            weightArray[index] -= tpsArray[index];
-            return result;
-        }).join();
+        CompletableFuture<Invoker<T>> resultByThread = CompletableFuture.supplyAsync(() -> selectByThread(invokers));
+        CompletableFuture<Invoker<T>> resultByTps = CompletableFuture.supplyAsync(() -> selectByTps(invokers));
+        CompletableFuture<Invoker<T>> resultRandom = CompletableFuture.supplyAsync(() -> invokers.get(ThreadLocalRandom.current().nextInt(invokers.size())));
+        Invoker<T> result = resultByThread.join();
+        if (result == null) {
+            result = resultByTps.join();
+        }
+        if (result == null) {
+            result = resultRandom.join();
+        }
 
-        // System.out.println(remainderArray[index] + "/" + threadArray[index] + "/" + tpsArray[index] + "/" + lastRttArray[index]);
-        // return result;
+        return result;
     }
 }
