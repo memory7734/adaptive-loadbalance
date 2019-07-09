@@ -25,7 +25,7 @@ public class CallbackServiceImpl implements CallbackService {
                 if (!listeners.isEmpty()) {
                     for (Map.Entry<String, CallbackListener> entry : listeners.entrySet()) {
                         try {
-                            entry.getValue().receiveServerMsg(new Date().toString());
+                            entry.getValue().receiveServerMsg(System.getProperty("quota") + " " + new Date().toString());
                         } catch (Throwable t1) {
                             listeners.remove(entry.getKey());
                         }
@@ -35,14 +35,13 @@ public class CallbackServiceImpl implements CallbackService {
         }, 0, 500);
     }
 
-
     private Timer timer = new Timer();
 
     /**
      * key: listener type
      * value: callback listener
      */
-    private static final Map<String, CallbackListener> listeners = new ConcurrentHashMap<>();
+    private final Map<String, CallbackListener> listeners = new ConcurrentHashMap<>();
 
     @Override
     public void addListener(String key, CallbackListener listener) {

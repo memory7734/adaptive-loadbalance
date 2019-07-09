@@ -12,7 +12,8 @@ public class Status {
     private final AtomicInteger active = new AtomicInteger();
     private final AtomicLong total = new AtomicLong();
     private final AtomicLong totalElapsed = new AtomicLong();
-    private final AtomicInteger thread = new AtomicInteger();
+    private int thread = 0;
+    private long lastElapsed = 200;
 
     public static Status getStatus(Integer port) {
         Status status = SERVICE_STATISTICS.get(port);
@@ -33,11 +34,12 @@ public class Status {
         Status status = getStatus(port);
         status.active.decrementAndGet();
         status.total.incrementAndGet();
-        status.totalElapsed.addAndGet(Long.valueOf(attrs.get("rt")));
-        if (status.thread.get() == 0) {
-            status.thread.set(Integer.valueOf(attrs.get("thread")));
-
+        long rt = Long.valueOf(attrs.get("rt"));
+        status.totalElapsed.addAndGet(rt);
+        if (status.thread == 0) {
+            status.thread = Integer.valueOf(attrs.get("thread"));
         }
+        status.lastElapsed = rt;
     }
 
     public int getActive() {
@@ -45,12 +47,21 @@ public class Status {
     }
 
     public int getRemainder() {
-        if (thread.get() == 0) return 0;
-        return thread.get() - active.get();
+        if (thread == 0) {
+            return 0;
+        }
+        return thread - getActive();
+    }
+    // 如果可用的线程数量低于线程总数的一半，则返回0
+    public int getCanUseRemainder() {
+        if (thread == 0 || getActive() > thread / 2) {
+            return 0;
+        }
+        return thread / 2 - getActive();
     }
 
     public int getThread() {
-        return thread.get();
+        return thread;
     }
 
     public long getTotal() {
@@ -84,4 +95,11 @@ public class Status {
         status.total.set(0);
     }
 
+    public void setLastElapsed(long lastElapsed) {
+        this.lastElapsed = lastElapsed;
+    }
+
+    public long getLastElapsed() {
+        return lastElapsed;
+    }
 }

@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author daofeng.xjf
- * <p>
+ *
  * 负载均衡扩展接口
  * 必选接口，核心接口
  * 此类可以修改实现，不可以移动类或者修改包名
@@ -35,7 +35,7 @@ public class UserLoadBalance implements LoadBalance {
 
     static AtomicInteger total = new AtomicInteger();
 
-    private Timer timer = new Timer();
+    // private Timer timer = new Timer();
 
     public static void calcTotal() {
 
@@ -45,50 +45,47 @@ public class UserLoadBalance implements LoadBalance {
 
     }
 
-    UserLoadBalance() {
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                calcTotal();
-            }
-        }, 0, 500);
-    }
+    // UserLoadBalance() {
+    //     timer.schedule(new TimerTask() {
+    //         @Override
+    //         public void run() {
+    //             calcTotal();
+    //         }
+    //     }, 0, 500);
+    // }
 
     private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers) {
 
         if (total.get() > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(total.get());
+            int offset = ThreadLocalRandom.current().nextInt(total.get() / 2);
 
             for (Invoker<T> invoker : invokers) {
-                offset -= Status.getStatus(invoker.getUrl().getPort()).getRemainder();
+                offset -= Status.getStatus(invoker.getUrl().getPort()).getCanUseRemainder();
                 if (offset < 0) return invoker;
             }
         }
         return null;
     }
 
-    // private <T> Invoker<T> selectByTps(List<Invoker<T>> invokers) {
-    //     long sum = 0;
-    //     for (long x : weightArray) {
-    //         sum += x;
-    //     }
-    //     if (sum > 0) {
-    //         long offset = ThreadLocalRandom.current().nextLong(sum);
-    //         for (Invoker<T> invoker : invokers) {
-    //             int index = (invoker.getUrl().getPort() - 20870) / 10;
-    //             offset -= weightArray[index];
-    //             if (offset < 0) return invoker;
-    //         }
-    //     }
-    //     return null;
-    // }
+    private <T> Invoker<T> selectByTps(List<Invoker<T>> invokers) {
+        Invoker<T> result = null;
+        Long minRt = Long.MAX_VALUE;
+        for (Invoker<T> invoker : invokers) {
+            long rt = Status.getStatus(invoker.getUrl().getPort()).getLastElapsed();
+            if (rt < minRt) {
+                minRt = rt;
+                result = invoker;
+            }
+        }
+        return result;
+    }
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
         Invoker<T> result = selectByThread(invokers);
-        // if (result == null) {
-        //     result = selectByTps(invokers);
-        // }
+        if (result == null) {
+            result = selectByTps(invokers);
+        }
         if (result == null) {
             result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
         }
