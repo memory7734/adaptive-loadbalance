@@ -24,16 +24,16 @@ public class UserLoadBalance implements LoadBalance {
 
     public static void calcTotal() {
 
-        total = (Status.getStatus(20870).getRemainder()
-                + Status.getStatus(20880).getRemainder()
-                + Status.getStatus(20890).getRemainder());
+        total = (Status.getStatus(20870).getCanUseRemainder()
+                + Status.getStatus(20880).getCanUseRemainder()
+                + Status.getStatus(20890).getCanUseRemainder());
 
     }
 
     private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers) {
         int sum = total;
         if (sum > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(sum / 2);
+            int offset = ThreadLocalRandom.current().nextInt(sum);
             for (Invoker<T> invoker : invokers) {
                 offset -= Status.getStatus(invoker.getUrl().getPort()).getCanUseRemainder();
                 if (offset < 0) return invoker;
