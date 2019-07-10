@@ -30,9 +30,6 @@ public class TestClientFilter implements Filter {
     public Result onResponse(Result result, Invoker<?> invoker, Invocation invocation) {
         Status.endCount(invoker.getUrl().getPort(), result.getAttachments(), result.hasException());
         UserLoadBalance.total--;
-        if (result.hasException()) {
-
-        }
         return result;
     }
 }

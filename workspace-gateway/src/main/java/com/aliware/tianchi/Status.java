@@ -11,6 +11,7 @@ public class Status {
     private final LongAdder active = new LongAdder();
     private long total = 0;
     private int thread = 0;
+    private int canUseActive = 0;
     private long[] elapsed = {200, 200, 200};
 
     public static Status getStatus(Integer port) {
@@ -24,14 +25,16 @@ public class Status {
 
 
     public static void beginCount(Integer port) {
-        Status appStatus = getStatus(port);
-        appStatus.active.increment();
+        Status status = getStatus(port);
+        status.active.increment();
+        status.canUseActive--;
     }
 
     public static void endCount(Integer port, Map<String, String> attrs, boolean hasException) {
         Status status = getStatus(port);
         status.active.decrement();
         status.total++;
+        status.canUseActive++;
         if (status.thread == 0) {
             status.thread = Integer.valueOf(attrs.get("thread"));
         }
@@ -50,10 +53,10 @@ public class Status {
     }
     // 如果可用的线程数量低于线程总数的一半，则返回0
     public int getCanUseRemainder() {
-        if (thread == 0 || getActive() > thread / 2) {
-            return 0;
+        if (canUseActive <= 0 || canUseActive >= thread / 2) {
+            canUseActive = Math.max(0, thread / 2 - getActive());
         }
-        return thread / 2 - getActive();
+        return canUseActive;
     }
 
     public long getElapsed() {
