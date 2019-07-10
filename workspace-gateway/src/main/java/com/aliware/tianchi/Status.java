@@ -8,9 +8,10 @@ import java.util.concurrent.atomic.LongAdder;
 public class Status {
     private static final ConcurrentMap<Integer, Status> SERVICE_STATISTICS = new ConcurrentHashMap<>();
 
-    private int active = 0;
+    private final LongAdder active = new LongAdder();
     private long total = 0;
     private int thread = 0;
+    private int canUseActive = 0;
     private long[] elapsed = {200, 200, 200};
 
     public static Status getStatus(Integer port) {
@@ -23,30 +24,39 @@ public class Status {
     }
 
 
-    public static void update(Integer port, Map<String, String> attrs, boolean hasException) {
+    public static void beginCount(Integer port) {
         Status status = getStatus(port);
+        status.active.increment();
+        status.canUseActive--;
+    }
+
+    public static void endCount(Integer port, Map<String, String> attrs, boolean hasException) {
+        Status status = getStatus(port);
+        status.active.decrement();
         status.total++;
+        status.canUseActive++;
         if (status.thread == 0) {
             status.thread = Integer.valueOf(attrs.get("thread"));
         }
-        status.active = Integer.valueOf(attrs.get("active"));
         status.elapsed[(int) (status.total % 3)] = hasException ? 1000 : Long.valueOf(attrs.get("rt"));
     }
 
     public int getActive() {
-        return active;
+        return active.intValue();
     }
 
     public int getRemainder() {
         if (thread == 0) {
             return 0;
         }
-        return thread - active;
+        return thread - getActive();
     }
     // 如果可用的线程数量低于线程总数的一半，则返回0
     public int getCanUseRemainder() {
-        int temp = thread / 2 - active;
-        return temp > 0 ? temp : 0;
+        if (canUseActive <= 0 || canUseActive >= thread / 2) {
+            canUseActive = Math.max(0, thread / 2 - getActive());
+        }
+        return canUseActive;
     }
 
     public long getElapsed() {
