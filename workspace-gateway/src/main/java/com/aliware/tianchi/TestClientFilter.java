@@ -21,14 +21,13 @@ public class TestClientFilter implements Filter {
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         if (invoker != null) {
             UserLoadBalance.total++;
-            Status.beginCount(invoker.getUrl().getPort());
         }
         return invoker.invoke(invocation);
     }
 
     @Override
     public Result onResponse(Result result, Invoker<?> invoker, Invocation invocation) {
-        Status.endCount(invoker.getUrl().getPort(), result.getAttachments(), result.hasException());
+        Status.update(invoker.getUrl().getPort(), result.getAttachments(), result.hasException());
         UserLoadBalance.total--;
         return result;
     }
