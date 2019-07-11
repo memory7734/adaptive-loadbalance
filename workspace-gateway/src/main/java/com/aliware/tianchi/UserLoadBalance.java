@@ -12,7 +12,7 @@ import java.util.concurrent.*;
 
 /**
  * @author daofeng.xjf
- *
+ * <p>
  * 负载均衡扩展接口
  * 必选接口，核心接口
  * 此类可以修改实现，不可以移动类或者修改包名
@@ -20,20 +20,13 @@ import java.util.concurrent.*;
  */
 public class UserLoadBalance implements LoadBalance {
 
-    static int total = 0;
 
     private static final ScheduledExecutorService EXECUTOR = new ScheduledThreadPoolExecutor(1, new NamedThreadFactory("Thread Selector"));
 
     private static boolean initExecutor = true;
     private static boolean checkByThread = true;
+    private static boolean initFinish = false;
 
-    static void calcTotal() {
-
-        total = (Status.getStatus(20870).getCanUseRemainder()
-                + Status.getStatus(20880).getCanUseRemainder()
-                + Status.getStatus(20890).getCanUseRemainder());
-
-    }
 
     private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers) {
         if (initExecutor) {
@@ -41,38 +34,64 @@ public class UserLoadBalance implements LoadBalance {
                 if (initExecutor) {
                     EXECUTOR.scheduleAtFixedRate(() -> {
                         checkByThread = true;
-                    }, 10000, 50, TimeUnit.MILLISECONDS);
+                        initFinish = true;
+                        Status.refreshCurrent();
+                    }, 0, 100, TimeUnit.MILLISECONDS);
                 }
                 initExecutor = false;
             }
         }
-        int sum = total;
+        int sum = Status.getCurrent();
+        System.out.println("sum" + sum);
         if (sum > 0) {
             int offset = ThreadLocalRandom.current().nextInt(sum);
             for (Invoker<T> invoker : invokers) {
                 offset -= Status.getStatus(invoker.getUrl().getPort()).getCanUseRemainder();
                 if (offset < 0) {
+                    // System.out.println(invoker.getUrl());
+                    // System.out.println(Status.getStatus(invoker.getUrl().getPort()).getCanUseRemainder());
+                    if (invoker.getUrl().getPort() == 20880) {
+                        System.out.println("provider small " + Status.getStatus(invoker.getUrl().getPort()).getCanUseRemainder());
+                    }
                     return invoker;
                 }
             }
         }
-        if (!initExecutor){
+        if (initFinish && sum <= 0) {
             checkByThread = false;
         }
         return null;
     }
 
-    private <T> Invoker<T> selectByTps(List<Invoker<T>> invokers) {
+    private <T> Invoker<T> selectByRt(List<Invoker<T>> invokers) {
         Invoker<T> result = null;
         long minRt = Long.MAX_VALUE;
         for (Invoker<T> invoker : invokers) {
-            long rt = Status.getStatus(invoker.getUrl().getPort()).getAvgElapsed();
-            if (rt < minRt) {
+            Status status = Status.getStatus(invoker.getUrl().getPort());
+            long rt = status.getAvgElapsed();
+            if (rt < minRt && rt < 1000 && status.getRemainder() > 10) {
                 minRt = rt;
                 result = invoker;
             }
         }
         return result;
+    }
+
+    private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
+        int sum = 0;
+        for (Invoker<T> invoker : invokers) {
+            sum += Status.getStatus(invoker.getUrl().getPort()).getRemainder();
+        }
+        if (sum > 0) {
+            int offset = ThreadLocalRandom.current().nextInt(sum);
+            for (Invoker<T> invoker : invokers) {
+                offset -= Status.getStatus(invoker.getUrl().getPort()).getRemainder();
+                if (offset < 0) {
+                    return invoker;
+                }
+            }
+        }
+        return null;
     }
 
     @Override
@@ -82,13 +101,22 @@ public class UserLoadBalance implements LoadBalance {
             result = selectByThread(invokers);
         }
         if (result == null) {
+            result = selectByRt(invokers);
+        } else {
             System.out.println("select by thread");
-            result = selectByTps(invokers);
+            return result;
         }
         if (result == null) {
+            result = selectByRemainder(invokers);
+        } else {
             System.out.println("select by rt");
+            return result;
+        }
+        if (result == null) {
             result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
             System.out.println("select by random");
+        } else {
+            System.out.println("select by remainder");
         }
         return result;
     }

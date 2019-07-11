@@ -18,7 +18,7 @@ import org.apache.dubbo.rpc.RpcException;
 @Activate(group = Constants.PROVIDER)
 public class TestServerFilter implements Filter {
 
-    private static int count = 0;
+    private static String thread = null;
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         Result result;
@@ -29,10 +29,10 @@ public class TestServerFilter implements Filter {
         } catch (Exception e) {
             throw e;
         }
-        if (count < 10) {
-            result.setAttachment("thread", invoker.getUrl().getParameter("threads"));
-            count++;
+        if (thread == null) {
+            thread = invoker.getUrl().getParameter("threads");
         }
+        result.setAttachment("thread", thread);
         result.setAttachment("rt", String.valueOf(System.currentTimeMillis() - begin));
         return result;
     }
