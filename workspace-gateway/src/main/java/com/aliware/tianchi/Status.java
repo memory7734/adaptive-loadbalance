@@ -12,7 +12,8 @@ public class Status {
     private long total = 0;
     private int thread = 0;
     private int canUseActive = 0;
-    private long[] elapsed = {200, 200, 200};
+    private long[] elapsed = new long[1024];
+    private long[] avgElapsed = new long[1024];
 
     public static Status getStatus(Integer port) {
         Status status = SERVICE_STATISTICS.get(port);
@@ -33,12 +34,16 @@ public class Status {
     public static void endCount(Integer port, Map<String, String> attrs, boolean hasException) {
         Status status = getStatus(port);
         status.active.decrement();
+        int p = (int) ((status.total + 1) & 1023);
         status.total++;
         status.canUseActive++;
         if (status.thread == 0) {
             status.thread = Integer.valueOf(attrs.get("thread"));
         }
-        status.elapsed[(int) (status.total % 3)] = hasException ? 1000 : Long.valueOf(attrs.get("rt"));
+        status.elapsed[p] = hasException ? 1000 : Long.valueOf(attrs.get("rt"));
+        if (status.elapsed[p] > status.avgElapsed[p] * 3) {
+            status.elapsed[p] = 1000;
+        }
     }
 
     public int getActive() {
@@ -51,6 +56,7 @@ public class Status {
         }
         return thread - getActive();
     }
+
     // 如果可用的线程数量低于线程总数的一半，则返回0
     public int getCanUseRemainder() {
         if (canUseActive <= 0 || canUseActive >= thread / 2) {
@@ -59,7 +65,16 @@ public class Status {
         return canUseActive;
     }
 
-    public long getElapsed() {
-        return (elapsed[0] + elapsed[1] + elapsed[2]) / 3;
+    public long getAvgElapsed() {
+        int p = (int) (total & 1023);
+        if (elapsed[p] > 800) {
+            return 1000;
+        }
+        long sum = 0;
+        for (long a : elapsed) {
+            sum += a;
+        }
+        avgElapsed[p] = sum / 1024;
+        return avgElapsed[p];
     }
 }
