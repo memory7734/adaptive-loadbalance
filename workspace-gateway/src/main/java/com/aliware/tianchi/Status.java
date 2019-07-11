@@ -12,6 +12,7 @@ public class Status {
     private long total = 0;
 
     private final static int[] portArray = {20870, 20880, 20890};
+    private final static int RT_SIZE = 512;
     private static int totalThread = 0;
     private int canUseThread = 0;
     private int thread = 0;
@@ -47,7 +48,7 @@ public class Status {
     public static void endCount(Integer port, Map<String, String> attrs, boolean hasException) {
         Status status = getStatus(port);
         status.active.decrement();
-        int p = (int) ((status.total + 1) & 1023);
+        int p = (int) ((status.total + 1) & RT_SIZE - 1);
         status.total++;
         status.canUseActive++;
         if (status.thread == 0) {
@@ -61,7 +62,8 @@ public class Status {
         }
         long lastElapsed = status.elapsed[p];
         long lastRt = hasException ? 1000 : Long.valueOf(attrs.get("rt"));
-        status.avgElapsed[p] = (status.avgElapsed[p] * 1024 - lastElapsed + lastRt) / 1024;
+        status.avgElapsed[p] = (status.avgElapsed[p] * RT_SIZE - lastElapsed + lastRt) / RT_SIZE;
+
         status.elapsed[p] = lastRt;
         if (Status.current > 0) {
             Status.current--;
@@ -75,9 +77,9 @@ public class Status {
     }
 
     public int getRemainder() {
-        if (thread == 0) {
-            return 0;
-        }
+        // if (thread == 0) {
+        //     return 0;
+        // }
         return thread - getActive();
     }
 
@@ -91,7 +93,7 @@ public class Status {
     }
 
     public long getAvgElapsed() {
-        int p = (int) (total & 1023);
+        int p = (int) (total & RT_SIZE - 1);
         if (elapsed[p] > 800) {
             return 1000;
         }

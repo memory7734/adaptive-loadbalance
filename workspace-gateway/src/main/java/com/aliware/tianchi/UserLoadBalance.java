@@ -42,7 +42,7 @@ public class UserLoadBalance implements LoadBalance {
             }
         }
         int sum = Status.getCurrent();
-        System.out.println("sum" + sum);
+        // System.out.println("sum" + sum);
         if (sum > 0) {
             int offset = ThreadLocalRandom.current().nextInt(sum);
             for (Invoker<T> invoker : invokers) {
@@ -50,9 +50,9 @@ public class UserLoadBalance implements LoadBalance {
                 if (offset < 0) {
                     // System.out.println(invoker.getUrl());
                     // System.out.println(Status.getStatus(invoker.getUrl().getPort()).getCanUseRemainder());
-                    if (invoker.getUrl().getPort() == 20880) {
-                        System.out.println("provider small " + Status.getStatus(invoker.getUrl().getPort()).getCanUseRemainder());
-                    }
+                    // if (invoker.getUrl().getPort() == 20880) {
+                    //     System.out.println("provider small " + Status.getStatus(invoker.getUrl().getPort()).getCanUseRemainder());
+                    // }
                     return invoker;
                 }
             }
@@ -77,22 +77,22 @@ public class UserLoadBalance implements LoadBalance {
         return result;
     }
 
-    private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
-        int sum = 0;
-        for (Invoker<T> invoker : invokers) {
-            sum += Status.getStatus(invoker.getUrl().getPort()).getRemainder();
-        }
-        if (sum > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(sum);
-            for (Invoker<T> invoker : invokers) {
-                offset -= Status.getStatus(invoker.getUrl().getPort()).getRemainder();
-                if (offset < 0) {
-                    return invoker;
-                }
-            }
-        }
-        return null;
-    }
+    // private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
+    //     int sum = 0;
+    //     for (Invoker<T> invoker : invokers) {
+    //         sum += Status.getStatus(invoker.getUrl().getPort()).getRemainder();
+    //     }
+    //     if (sum > 0) {
+    //         int offset = ThreadLocalRandom.current().nextInt(sum);
+    //         for (Invoker<T> invoker : invokers) {
+    //             offset -= Status.getStatus(invoker.getUrl().getPort()).getRemainder();
+    //             if (offset < 0) {
+    //                 return invoker;
+    //             }
+    //         }
+    //     }
+    //     return null;
+    // }
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
@@ -102,22 +102,22 @@ public class UserLoadBalance implements LoadBalance {
         }
         if (result == null) {
             result = selectByRt(invokers);
-        } else {
-            System.out.println("select by thread");
-            return result;
+        // } else {
+        //     System.out.println("select by thread");
+        //     return result;
+        // }
+        // if (result == null) {
+        //     result = selectByRemainder(invokers);
+        // } else {
+        //     System.out.println("select by rt");
+        //     return result;
+        // }
+        // if (result == null) {
+        //     result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        //     System.out.println("select by random");
+        // } else {
+        //     System.out.println("select by remainder");
         }
-        if (result == null) {
-            result = selectByRemainder(invokers);
-        } else {
-            System.out.println("select by rt");
-            return result;
-        }
-        if (result == null) {
-            result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
-            System.out.println("select by random");
-        } else {
-            System.out.println("select by remainder");
-        }
-        return result;
+        return result != null ? result : invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
     }
 }
