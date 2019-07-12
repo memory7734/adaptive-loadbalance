@@ -69,7 +69,7 @@ public class UserLoadBalance implements LoadBalance {
         for (Invoker<T> invoker : invokers) {
             Status status = Status.getStatus(invoker.getUrl().getPort());
             long rt = status.getAvgElapsed();
-            if (rt < minRt && rt < 1000 && status.getRemainder() > 10) {
+            if (rt < minRt && status.getLastElapsed() < rt * 3 && status.getRemainder() > 10) {
                 minRt = rt;
                 result = invoker;
             }
@@ -102,21 +102,21 @@ public class UserLoadBalance implements LoadBalance {
         }
         if (result == null) {
             result = selectByRt(invokers);
-        // } else {
-        //     System.out.println("select by thread");
-        //     return result;
-        // }
-        // if (result == null) {
-        //     result = selectByRemainder(invokers);
-        // } else {
-        //     System.out.println("select by rt");
-        //     return result;
-        // }
-        // if (result == null) {
-        //     result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
-        //     System.out.println("select by random");
-        // } else {
-        //     System.out.println("select by remainder");
+            // } else {
+            //     System.out.println("select by thread");
+            //     return result;
+            // }
+            // if (result == null) {
+            //     result = selectByRemainder(invokers);
+            // } else {
+            //     System.out.println("select by rt");
+            //     return result;
+            // }
+            // if (result == null) {
+            //     result = invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+            //     System.out.println("select by random");
+            // } else {
+            //     System.out.println("select by remainder");
         }
         return result != null ? result : invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
     }

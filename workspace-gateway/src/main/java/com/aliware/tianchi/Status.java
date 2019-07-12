@@ -19,8 +19,8 @@ public class Status {
 
     private static int current = 0;
     private int canUseActive = 0;
-    private long[] elapsed = new long[1024];
-    private long[] avgElapsed = new long[1024];
+    private long[] elapsed = new long[RT_SIZE];
+    private double avgElapsed = 0;
 
 
     public static Status getStatus(Integer port) {
@@ -62,8 +62,7 @@ public class Status {
         }
         long lastElapsed = status.elapsed[p];
         long lastRt = hasException ? 1000 : Long.valueOf(attrs.get("rt"));
-        status.avgElapsed[p] = (status.avgElapsed[p] * RT_SIZE - lastElapsed + lastRt) / RT_SIZE;
-
+        status.avgElapsed = (status.avgElapsed * RT_SIZE - lastElapsed + lastRt) / RT_SIZE;
         status.elapsed[p] = lastRt;
         if (Status.current > 0) {
             Status.current--;
@@ -92,12 +91,16 @@ public class Status {
         return canUseActive;
     }
 
+    public long getLastElapsed() {
+        return elapsed[(int) ((total + 1) & RT_SIZE - 1)];
+    }
+
     public long getAvgElapsed() {
         int p = (int) (total & RT_SIZE - 1);
         if (elapsed[p] > 800) {
             return 1000;
         }
-        return avgElapsed[p];
+        return (long) avgElapsed;
     }
 
     public static int getCurrent() {
@@ -115,9 +118,11 @@ public class Status {
             int temp = Math.max(0, status.canUseThread - status.active.intValue());
             status.canUseActive = temp;
             sum += temp;
-            for (int i = 0; i < status.avgElapsed.length; i++) {
-                status.avgElapsed[i] = 50;
-            }
+            // status.avgElapsed = 50;
+
+            // for (int i = 0; i < status.avgElapsed.length; i++) {
+            //     status.avgElapsed[i] = 50;
+            // }
         }
         Status.setCurrent(sum);
     }
