@@ -58,7 +58,7 @@ public class UserLoadBalance implements LoadBalance {
     }
 
     private <T> Invoker<T> selectByRt(List<Invoker<T>> invokers) {
-        double sum = Status.getAvgRt();
+        double sum = 10000 / Status.getTotalAvgElapsed() * 3;
         if (sum > 0) {
             double offset = ThreadLocalRandom.current().nextDouble(sum);
             for (Invoker<T> invoker : invokers) {
@@ -80,7 +80,7 @@ public class UserLoadBalance implements LoadBalance {
         // for (Invoker<T> invoker : invokers) {
         //     Status status = Status.getStatus(invoker.getUrl().getPort());
         //     long rt = status.getLastElapsed();
-        //     if (rt < minRt && rt < status.getTotalAvgElapsed() * 3 && status.getRemainder() > 10) {
+        //     if (rt < minRt && rt < status.getAvgElapsed() * 2 && status.getRemainder() > 10) {
         //         minRt = rt;
         //         result = invoker;
         //     }

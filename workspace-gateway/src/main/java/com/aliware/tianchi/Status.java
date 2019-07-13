@@ -3,7 +3,6 @@ package com.aliware.tianchi;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 public class Status {
@@ -13,7 +12,7 @@ public class Status {
     private long total = 0;
 
     private final static int[] portArray = {20870, 20880, 20890};
-    private final static int RT_SIZE = 1024;
+    private final static int RT_SIZE = 2048;
     private static int totalThread = 0;
     private int canUseThread = 0;
     private int thread = 0;
@@ -22,6 +21,7 @@ public class Status {
     private int canUseActive = 0;
     private long[] elapsed = new long[RT_SIZE];
     private double avgElapsed = 0;
+    private static double totalAvgElapsed = 0;
 
 
     public static Status getStatus(Integer port) {
@@ -64,6 +64,7 @@ public class Status {
         long lastElapsed = status.elapsed[p];
         long lastRt = hasException ? 1000 : Long.valueOf(attrs.get("rt"));
         status.avgElapsed = (status.avgElapsed * RT_SIZE - lastElapsed + lastRt) / RT_SIZE;
+        Status.totalAvgElapsed = (Status.totalAvgElapsed * RT_SIZE * 3 - lastElapsed + lastRt) / RT_SIZE / 3;
         status.elapsed[p] = lastRt;
         if (Status.current > 0) {
             Status.current--;
@@ -96,7 +97,7 @@ public class Status {
         return elapsed[(int) ((total + 1) & RT_SIZE - 1)];
     }
 
-    public static long getTotalAvgElapsed() {
+    public static long getMinAvgElapsed() {
         return (long) Math.min(Math.min(getStatus(20870).avgElapsed, getStatus(20880).avgElapsed), getStatus(20890).avgElapsed);
     }
 
@@ -108,25 +109,8 @@ public class Status {
         return current;
     }
 
-    public double getCurrentRt() {
-        return 10000 / avgElapsed;
-    }
-
-    public static double getAvgRt() {
-        int sum = 0;
-        Status status = getStatus(20870);
-        if (status.avgElapsed > 0) {
-            sum += 10000 / status.avgElapsed;
-        }
-        status = getStatus(20880);
-        if (status.avgElapsed > 0) {
-            sum += 10000 / status.avgElapsed;
-        }
-        status = getStatus(20890);
-        if (status.avgElapsed > 0) {
-            sum += 10000 / status.avgElapsed;
-        }
-        return sum;
+    public static double getTotalAvgElapsed() {
+        return totalAvgElapsed > 0 ? totalAvgElapsed : -1;
     }
 
     public static void setCurrent(int current) {
@@ -140,11 +124,6 @@ public class Status {
             int temp = Math.max(0, status.canUseThread - status.active.intValue());
             status.canUseActive = temp;
             sum += temp;
-            // status.avgElapsed = 50;
-
-            // for (int i = 0; i < status.avgElapsed.length; i++) {
-            //     status.avgElapsed[i] = 50;
-            // }
         }
         Status.setCurrent(sum);
     }
