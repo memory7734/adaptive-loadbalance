@@ -19,9 +19,7 @@ import org.apache.dubbo.rpc.RpcException;
 public class TestClientFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
-        if (invoker != null) {
-            Status.beginCount(invoker.getUrl().getPort());
-        }
+        Status.beginCount(invoker.getUrl().getPort());
         return invoker.invoke(invocation);
     }
 

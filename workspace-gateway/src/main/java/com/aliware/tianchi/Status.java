@@ -97,14 +97,31 @@ public class Status {
 
     public long getAvgElapsed() {
         int p = (int) (total & RT_SIZE - 1);
-        if (elapsed[p] > 800) {
-            return 1000;
-        }
+        // if (elapsed[p] > 800) {
+        //     return 1000;
+        // }
         return (long) avgElapsed;
     }
 
     public static int getCurrent() {
         return current;
+    }
+
+    public static double getAvgRt() {
+        int sum = 0;
+        Status status = getStatus(20870);
+        if (status.avgElapsed > 0) {
+            sum += 10000 / status.avgElapsed;
+        }
+        status = getStatus(20880);
+        if (status.avgElapsed > 0) {
+            sum += 10000 / status.avgElapsed;
+        }
+        status = getStatus(20890);
+        if (status.avgElapsed > 0) {
+            sum += 10000 / status.avgElapsed;
+        }
+        return sum;
     }
 
     public static void setCurrent(int current) {

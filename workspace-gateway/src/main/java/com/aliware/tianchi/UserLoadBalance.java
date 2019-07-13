@@ -64,17 +64,30 @@ public class UserLoadBalance implements LoadBalance {
     }
 
     private <T> Invoker<T> selectByRt(List<Invoker<T>> invokers) {
-        Invoker<T> result = null;
-        long minRt = Long.MAX_VALUE;
-        for (Invoker<T> invoker : invokers) {
-            Status status = Status.getStatus(invoker.getUrl().getPort());
-            long rt = status.getAvgElapsed();
-            if (rt < minRt && status.getLastElapsed() < rt * 3 && status.getRemainder() > 10) {
-                minRt = rt;
-                result = invoker;
+        double sum = Status.getAvgRt();
+        if (sum > 0) {
+            double offset = ThreadLocalRandom.current().nextDouble(sum);
+            for (Invoker<T> invoker : invokers) {
+                Status status = Status.getStatus(invoker.getUrl().getPort());
+                long rt = status.getAvgElapsed();
+                offset -= 10000 / rt;
+                if (offset < 0 && status.getLastElapsed() < rt * 3 && status.getRemainder() > 10) {
+                    return invoker;
+                }
             }
         }
-        return result;
+        return null;
+        // Invoker<T> result = null;
+        // long minRt = Long.MAX_VALUE;
+        // for (Invoker<T> invoker : invokers) {
+        //     Status status = Status.getStatus(invoker.getUrl().getPort());
+        //     long rt = status.getAvgElapsed();
+        //     if (rt < minRt && status.getLastElapsed() < rt * 3 && status.getRemainder() > 10) {
+        //         minRt = rt;
+        //         result = invoker;
+        //     }
+        // }
+        // return result;
     }
 
     // private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
