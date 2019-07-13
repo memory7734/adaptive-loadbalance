@@ -78,13 +78,13 @@ public class UserLoadBalance implements LoadBalance {
     }
 
     private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
-        int minThread = Integer.MAX_VALUE;
-        Invoker<T> result = null;
+        int maxThread = 0;
+        Invoker<T> result = invokers.get(0);
         for (Invoker<T> invoker : invokers) {
             int r = Status.getStatus(invoker.getUrl().getPort()).getRemainder();
-            if (r < minThread) {
+            if (r > maxThread) {
                 result = invoker;
-                minThread = r;
+                maxThread = r;
             }
         }
         return result;
@@ -92,7 +92,7 @@ public class UserLoadBalance implements LoadBalance {
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        Invoker<T> result = null;
+        Invoker<T> result;
         if (checkByThread) {
             result = selectByThread(invokers);
             if (result != null) return result;

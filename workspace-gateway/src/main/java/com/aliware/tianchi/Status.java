@@ -78,9 +78,6 @@ public class Status {
     }
 
     public int getRemainder() {
-        // if (thread == 0) {
-        //     return 0;
-        // }
         return thread - getActive();
     }
 
