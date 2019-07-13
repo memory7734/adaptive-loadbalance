@@ -71,7 +71,7 @@ public class UserLoadBalance implements LoadBalance {
                 Status status = Status.getStatus(invoker.getUrl().getPort());
                 long rt = status.getAvgElapsed();
                 offset -= 10000 / rt;
-                if (offset < 0 && status.getLastElapsed() < rt * 3 && status.getRemainder() > 10) {
+                if (offset < 0 && status.getLastElapsed() < rt * 3) {
                     return invoker;
                 }
             }
