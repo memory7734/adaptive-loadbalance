@@ -3,12 +3,13 @@ package com.aliware.tianchi;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.LongAdder;
 
 public class Status {
     private static final ConcurrentMap<Integer, Status> SERVICE_STATISTICS = new ConcurrentHashMap<>();
 
-    private final LongAdder active = new LongAdder();
+    private final AtomicLong active = new AtomicLong();
     private long total = 0;
 
     private final static int[] portArray = {20870, 20880, 20890};
@@ -35,7 +36,7 @@ public class Status {
 
     public static void beginCount(Integer port) {
         Status status = getStatus(port);
-        status.active.increment();
+        status.active.incrementAndGet();
         status.canUseActive--;
         if (Status.current < Status.totalThread) {
             Status.current++;
@@ -47,7 +48,7 @@ public class Status {
 
     public static void endCount(Integer port, Map<String, String> attrs, boolean hasException) {
         Status status = getStatus(port);
-        status.active.decrement();
+        status.active.decrementAndGet();
         int p = (int) ((status.total + 1) & RT_SIZE - 1);
         status.total++;
         status.canUseActive++;
