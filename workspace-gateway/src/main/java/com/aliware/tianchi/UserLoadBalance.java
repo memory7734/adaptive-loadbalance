@@ -90,22 +90,14 @@ public class UserLoadBalance implements LoadBalance {
         // return result;
     }
 
-    // private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
-    //     int sum = 0;
-    //     for (Invoker<T> invoker : invokers) {
-    //         sum += Status.getStatus(invoker.getUrl().getPort()).getRemainder();
-    //     }
-    //     if (sum > 0) {
-    //         int offset = ThreadLocalRandom.current().nextInt(sum);
-    //         for (Invoker<T> invoker : invokers) {
-    //             offset -= Status.getStatus(invoker.getUrl().getPort()).getRemainder();
-    //             if (offset < 0) {
-    //                 return invoker;
-    //             }
-    //         }
-    //     }
-    //     return null;
-    // }
+    private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
+        for (Invoker<T> invoker : invokers) {
+            if (Status.getStatus(invoker.getUrl().getPort()).getRemainder() > 10) {
+                return invoker;
+            }
+        }
+        return null;
+    }
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
@@ -130,6 +122,9 @@ public class UserLoadBalance implements LoadBalance {
             //     System.out.println("select by random");
             // } else {
             //     System.out.println("select by remainder");
+        }
+        if (result == null) {
+            result = selectByRemainder(invokers);
         }
         return result != null ? result : invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
     }
