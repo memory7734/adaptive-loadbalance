@@ -58,12 +58,25 @@ public class UserLoadBalance implements LoadBalance {
     }
 
     private <T> Invoker<T> selectByRt(List<Invoker<T>> invokers) {
+        // double sum = Status.getAvgRt();
+        // if (sum > 0) {
+        //     double offset = ThreadLocalRandom.current().nextDouble(sum);
+        //     for (Invoker<T> invoker : invokers) {
+        //         Status status = Status.getStatus(invoker.getUrl().getPort());
+        //         long rt = status.getTotalAvgElapsed();
+        //         offset -= 10000 / rt;
+        //         if (offset < 0 && status.getLastElapsed() < rt * 3 && status.getRemainder() > 10) {
+        //             return invoker;
+        //         }
+        //     }
+        // }
+        // return null;
         Invoker<T> result = null;
         long minRt = Long.MAX_VALUE;
         for (Invoker<T> invoker : invokers) {
             Status status = Status.getStatus(invoker.getUrl().getPort());
-            long rt = status.getAvgElapsed();
-            if (rt < minRt && status.getLastElapsed() < rt * 3 && status.getRemainder() > 5) {
+            long rt = status.getLastElapsed();
+            if (rt < minRt && rt < status.getTotalAvgElapsed() * 3 && status.getRemainder() > 10) {
                 minRt = rt;
                 result = invoker;
             }
@@ -73,7 +86,7 @@ public class UserLoadBalance implements LoadBalance {
 
     private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
         for (Invoker<T> invoker : invokers) {
-            if (Status.getStatus(invoker.getUrl().getPort()).getRemainder() > 10) {
+            if (Status.getStatus(invoker.getUrl().getPort()).getRemainder() > 0) {
                 return invoker;
             }
         }
@@ -82,13 +95,17 @@ public class UserLoadBalance implements LoadBalance {
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        Invoker<T> result = null;
-        if (checkByThread) {
-            result = selectByThread(invokers);
-        }
-        if (result == null) {
-            result = selectByRt(invokers);
-        }
-        return result != null ? result : invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        return invokers.get(0);
+        // Invoker<T> result = null;
+        // if (checkByThread) {
+        //     result = selectByThread(invokers);
+        // }
+        // if (result == null) {
+        //     result = selectByRt(invokers);
+        // }
+        // if (result == null) {
+        //     result = selectByRemainder(invokers);
+        // }
+        // return result != null ? result : invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
     }
 }

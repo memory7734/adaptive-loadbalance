@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.LongAdder;
 public class Status {
     private static final ConcurrentMap<Integer, Status> SERVICE_STATISTICS = new ConcurrentHashMap<>();
 
-    private final AtomicLong active = new AtomicLong();
+    private final LongAdder active = new LongAdder();
     private long total = 0;
 
     private final static int[] portArray = {20870, 20880, 20890};
@@ -36,7 +36,7 @@ public class Status {
 
     public static void beginCount(Integer port) {
         Status status = getStatus(port);
-        status.active.incrementAndGet();
+        status.active.increment();
         status.canUseActive--;
         if (Status.current < Status.totalThread) {
             Status.current++;
@@ -48,7 +48,7 @@ public class Status {
 
     public static void endCount(Integer port, Map<String, String> attrs, boolean hasException) {
         Status status = getStatus(port);
-        status.active.decrementAndGet();
+        status.active.decrement();
         int p = (int) ((status.total + 1) & RT_SIZE - 1);
         status.total++;
         status.canUseActive++;
@@ -96,11 +96,16 @@ public class Status {
         return elapsed[(int) ((total + 1) & RT_SIZE - 1)];
     }
 
-    public long getAvgElapsed() {
-        int p = (int) (total & RT_SIZE - 1);
+    public long getTotalAvgElapsed() {
+        // int p = (int) (total & RT_SIZE - 1);
         // if (elapsed[p] > 800) {
         //     return 1000;
         // }
+        // return (long) avgElapsed;
+        return (long) Math.min(Math.min(getStatus(20870).avgElapsed, getStatus(20880).avgElapsed), getStatus(20890).avgElapsed);
+    }
+
+    public long getAvgElapsed() {
         return (long) avgElapsed;
     }
 
