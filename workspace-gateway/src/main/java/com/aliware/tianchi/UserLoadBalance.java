@@ -69,32 +69,25 @@ public class UserLoadBalance implements LoadBalance {
                 }
                 double rt = status.getAvgElapsed();
                 offset -= 10000 / rt;
-                if (offset < 0 && lastRt < rt * 3 && status.getRemainder() > 10) {
+                if (offset < 0 && lastRt < rt * 3) {
                     return invoker;
                 }
             }
         }
         return null;
-        // Invoker<T> result = null;
-        // long minRt = Long.MAX_VALUE;
-        // for (Invoker<T> invoker : invokers) {
-        //     Status status = Status.getStatus(invoker.getUrl().getPort());
-        //     long rt = status.getLastElapsed();
-        //     if (rt < minRt && rt < status.getAvgElapsed() * 2 && status.getRemainder() > 10) {
-        //         minRt = rt;
-        //         result = invoker;
-        //     }
-        // }
-        // return result;
     }
 
     private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
+        int minThread = Integer.MAX_VALUE;
+        Invoker<T> result = null;
         for (Invoker<T> invoker : invokers) {
-            if (Status.getStatus(invoker.getUrl().getPort()).getRemainder() > 3) {
-                return invoker;
+            int r = Status.getStatus(invoker.getUrl().getPort()).getRemainder();
+            if (r < minThread) {
+                result = invoker;
+                minThread = r;
             }
         }
-        return null;
+        return result;
     }
 
     @Override
@@ -102,9 +95,9 @@ public class UserLoadBalance implements LoadBalance {
         Invoker<T> result = null;
         if (checkByThread) {
             result = selectByThread(invokers);
+            if (result != null) return result;
         }
-        if (result != null) return result;
         result = selectByRt(invokers);
-        return result != null ? result : invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        return result != null ? result : selectByRemainder(invokers);
     }
 }
