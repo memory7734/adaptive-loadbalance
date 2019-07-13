@@ -58,35 +58,39 @@ public class UserLoadBalance implements LoadBalance {
     }
 
     private <T> Invoker<T> selectByRt(List<Invoker<T>> invokers) {
-        // double sum = Status.getAvgRt();
-        // if (sum > 0) {
-        //     double offset = ThreadLocalRandom.current().nextDouble(sum);
-        //     for (Invoker<T> invoker : invokers) {
-        //         Status status = Status.getStatus(invoker.getUrl().getPort());
-        //         long rt = status.getTotalAvgElapsed();
-        //         offset -= 10000 / rt;
-        //         if (offset < 0 && status.getLastElapsed() < rt * 3 && status.getRemainder() > 10) {
-        //             return invoker;
-        //         }
-        //     }
-        // }
-        // return null;
-        Invoker<T> result = null;
-        long minRt = Long.MAX_VALUE;
-        for (Invoker<T> invoker : invokers) {
-            Status status = Status.getStatus(invoker.getUrl().getPort());
-            long rt = status.getLastElapsed();
-            if (rt < minRt && rt < status.getTotalAvgElapsed() * 3 && status.getRemainder() > 10) {
-                minRt = rt;
-                result = invoker;
+        double sum = Status.getAvgRt();
+        if (sum > 0) {
+            double offset = ThreadLocalRandom.current().nextDouble(sum);
+            for (Invoker<T> invoker : invokers) {
+                Status status = Status.getStatus(invoker.getUrl().getPort());
+                long lastRt = status.getLastElapsed();
+                if (!checkByThread && lastRt > Status.getTotalAvgElapsed() * 3) {
+                    continue;
+                }
+                double rt = status.getAvgElapsed();
+                offset -= 10000 / rt;
+                if (offset < 0 && lastRt < rt * 3 && status.getRemainder() > 10) {
+                    return invoker;
+                }
             }
         }
-        return result;
+        return null;
+        // Invoker<T> result = null;
+        // long minRt = Long.MAX_VALUE;
+        // for (Invoker<T> invoker : invokers) {
+        //     Status status = Status.getStatus(invoker.getUrl().getPort());
+        //     long rt = status.getLastElapsed();
+        //     if (rt < minRt && rt < status.getTotalAvgElapsed() * 3 && status.getRemainder() > 10) {
+        //         minRt = rt;
+        //         result = invoker;
+        //     }
+        // }
+        // return result;
     }
 
     private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
         for (Invoker<T> invoker : invokers) {
-            if (Status.getStatus(invoker.getUrl().getPort()).getRemainder() > 0) {
+            if (Status.getStatus(invoker.getUrl().getPort()).getRemainder() > 3) {
                 return invoker;
             }
         }
@@ -95,17 +99,12 @@ public class UserLoadBalance implements LoadBalance {
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        return invokers.get(0);
-        // Invoker<T> result = null;
-        // if (checkByThread) {
-        //     result = selectByThread(invokers);
-        // }
-        // if (result == null) {
-        //     result = selectByRt(invokers);
-        // }
-        // if (result == null) {
-        //     result = selectByRemainder(invokers);
-        // }
-        // return result != null ? result : invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
+        Invoker<T> result = null;
+        if (checkByThread) {
+            result = selectByThread(invokers);
+        }
+        if (result != null) return result;
+        result = selectByRt(invokers);
+        return result != null ? result : invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
     }
 }

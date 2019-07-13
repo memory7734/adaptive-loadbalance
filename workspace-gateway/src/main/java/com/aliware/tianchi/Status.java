@@ -13,7 +13,7 @@ public class Status {
     private long total = 0;
 
     private final static int[] portArray = {20870, 20880, 20890};
-    private final static int RT_SIZE = 512;
+    private final static int RT_SIZE = 1024;
     private static int totalThread = 0;
     private int canUseThread = 0;
     private int thread = 0;
@@ -96,21 +96,20 @@ public class Status {
         return elapsed[(int) ((total + 1) & RT_SIZE - 1)];
     }
 
-    public long getTotalAvgElapsed() {
-        // int p = (int) (total & RT_SIZE - 1);
-        // if (elapsed[p] > 800) {
-        //     return 1000;
-        // }
-        // return (long) avgElapsed;
+    public static long getTotalAvgElapsed() {
         return (long) Math.min(Math.min(getStatus(20870).avgElapsed, getStatus(20880).avgElapsed), getStatus(20890).avgElapsed);
     }
 
-    public long getAvgElapsed() {
-        return (long) avgElapsed;
+    public double getAvgElapsed() {
+        return avgElapsed;
     }
 
     public static int getCurrent() {
         return current;
+    }
+
+    public double getCurrentRt() {
+        return 10000 / avgElapsed;
     }
 
     public static double getAvgRt() {
