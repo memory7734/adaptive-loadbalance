@@ -93,14 +93,14 @@ public class UserLoadBalance implements LoadBalance {
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
         Invoker<T> result = null;
-        for (int i = 0; i < 5 && result == null; i++) {
+        while (result == null) {
             if (checkByThread) {
                 result = selectByThread(invokers);
                 if (result != null) return result;
             }
             result = selectByRt(invokers);
         }
-        // return result;
-        return result != null ? result : selectByRemainder(invokers);
+        return result;
+        // return result != null ? result : selectByRemainder(invokers);
     }
 }
