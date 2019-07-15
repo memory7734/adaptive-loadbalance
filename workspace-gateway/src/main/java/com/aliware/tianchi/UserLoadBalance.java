@@ -97,7 +97,7 @@ public class UserLoadBalance implements LoadBalance {
             result = selectByThread(invokers);
             if (result != null) return result;
         }
-        for (int i = 0; i < 10 && result == null; i++) {
+        while (result == null) {
             result = selectByRt(invokers);
             if (result == null) {
                 try {
