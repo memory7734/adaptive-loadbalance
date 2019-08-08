@@ -14,7 +14,12 @@ public class CallbackListenerImpl implements CallbackListener {
 
     @Override
     public void receiveServerMsg(String msg) {
-
+        String[] s = msg.split(",");
+        int port = Integer.parseInt(s[1]);
+        int max = Integer.parseInt(s[0]);
+        ProviderStatus provider = new ProviderStatus(port, max);
+        ProviderStatus.providers[(port - 20870) / 10] = provider;
+        provider.init();
     }
 
 }

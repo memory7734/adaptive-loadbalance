@@ -1,5 +1,10 @@
 package com.aliware.tianchi;
 
+import org.apache.dubbo.common.Constants;
+import org.apache.dubbo.common.extension.ExtensionLoader;
+import org.apache.dubbo.common.status.StatusChecker;
+import org.apache.dubbo.common.store.DataStore;
+import org.apache.dubbo.rpc.RpcContext;
 import org.apache.dubbo.rpc.listener.CallbackListener;
 import org.apache.dubbo.rpc.service.CallbackService;
 
@@ -8,6 +13,8 @@ import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * @author daofeng.xjf
@@ -18,34 +25,23 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class CallbackServiceImpl implements CallbackService {
 
-    public CallbackServiceImpl() {
-        timer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                if (!listeners.isEmpty()) {
-                    for (Map.Entry<String, CallbackListener> entry : listeners.entrySet()) {
-                        try {
-                            entry.getValue().receiveServerMsg(System.getProperty("quota") + " " + new Date().toString());
-                        } catch (Throwable t1) {
-                            listeners.remove(entry.getKey());
-                        }
-                    }
-                }
-            }
-        }, 0, 5000);
+    static final Map<String, CallbackListener> listeners = new ConcurrentHashMap<>();
+
+    static String maxThreads(String statusMessage, String mark) {
+        int maxIndex = statusMessage.indexOf(mark);
+        int commaIndex = statusMessage.indexOf(",", maxIndex);
+        return statusMessage.substring(maxIndex + mark.length(), commaIndex);
     }
-
-    private Timer timer = new Timer();
-
-    /**
-     * key: listener type
-     * value: callback listener
-     */
-    private final Map<String, CallbackListener> listeners = new ConcurrentHashMap<>();
 
     @Override
     public void addListener(String key, CallbackListener listener) {
         listeners.put(key, listener);
-        listener.receiveServerMsg(new Date().toString()); // send notification for change
+        DataStore dataStore = ExtensionLoader.getExtensionLoader(DataStore.class).getDefaultExtension();
+        Map<String, Object> executors = dataStore.get(Constants.EXECUTOR_SERVICE_COMPONENT_KEY);
+        for (Map.Entry<String, Object> entry : executors.entrySet()) {
+            ExecutorService executor = (ExecutorService) entry.getValue();
+            ThreadPoolExecutor tp = (ThreadPoolExecutor) executor;
+            listener.receiveServerMsg(String.format("%d,%d", tp.getMaximumPoolSize(), RpcContext.getContext().getUrl().getPort()));
+        }
     }
 }

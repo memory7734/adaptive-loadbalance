@@ -7,13 +7,8 @@ import java.util.concurrent.TimeUnit;
 public class CurrentTime {
     public static long current = System.currentTimeMillis();
     private static ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
-    private static Runnable runnable = new Runnable() {
-        @Override
-        public void run() {
-            current = System.currentTimeMillis();
-        }
-    };
-    static{
-        service.scheduleAtFixedRate(runnable, 0, 1, TimeUnit.MILLISECONDS);
+
+    static {
+        service.scheduleAtFixedRate(() -> current = System.currentTimeMillis(), 0, 1, TimeUnit.MILLISECONDS);
     }
 }

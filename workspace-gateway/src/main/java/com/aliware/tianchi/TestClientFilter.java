@@ -2,11 +2,7 @@ package com.aliware.tianchi;
 
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.extension.Activate;
-import org.apache.dubbo.rpc.Filter;
-import org.apache.dubbo.rpc.Invocation;
-import org.apache.dubbo.rpc.Invoker;
-import org.apache.dubbo.rpc.Result;
-import org.apache.dubbo.rpc.RpcException;
+import org.apache.dubbo.rpc.*;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -22,7 +18,13 @@ public class TestClientFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         try {
-            return invoker.invoke(invocation);
+            long start = CurrentTime.current;
+            AsyncRpcResult result = (AsyncRpcResult) invoker.invoke(invocation);
+            result.getResultFuture().thenAccept(a -> {
+                int port = invoker.getUrl().getPort();
+                ProviderStatus.record(port, CurrentTime.current - start);
+            });
+            return result;
         } catch (Exception e) {
             throw e;
         }
@@ -30,13 +32,6 @@ public class TestClientFilter implements Filter {
 
     @Override
     public Result onResponse(Result result, Invoker<?> invoker, Invocation invocation) {
-        int index = (invoker.getUrl().getPort() - 20870) / 10;
-        UserLoadBalance.remainder[index] = Integer.parseInt(result.getAttachment("active"));
-        int rttIndex = ThreadLocalRandom.current().nextInt(1024);
-        long lastRtt = UserLoadBalance.rtt[index][rttIndex];
-        long curRtt = Integer.parseInt(result.getAttachment("rtt"));
-        UserLoadBalance.avgRtt[index] = UserLoadBalance.avgRtt[index] * 1024 - lastRtt + curRtt;
-        UserLoadBalance.rtt[index][rttIndex] = curRtt;
         return result;
     }
 }
