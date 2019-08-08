@@ -4,8 +4,6 @@ import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.extension.Activate;
 import org.apache.dubbo.rpc.*;
 
-import java.util.concurrent.ThreadLocalRandom;
-
 /**
  * @author daofeng.xjf
  * <p>
@@ -22,7 +20,7 @@ public class TestClientFilter implements Filter {
             AsyncRpcResult result = (AsyncRpcResult) invoker.invoke(invocation);
             result.getResultFuture().thenAccept(a -> {
                 int port = invoker.getUrl().getPort();
-                ProviderStatus.record(port, CurrentTime.current - start);
+                ProviderStatus.providers[(port - 20870) / 10].response(CurrentTime.current - start);
             });
             return result;
         } catch (Exception e) {

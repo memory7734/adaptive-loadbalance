@@ -24,7 +24,7 @@ public class UserLoadBalance implements LoadBalance {
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
         Invoker<T> result = null;
         ProviderThread request;
-        while ((request = ProviderStatus.select()) == null) {
+        while ((request = ProviderStatus.queue.pollFirst()) == null) {
             try {
                 Thread.sleep(1);
             } catch (InterruptedException e) {
