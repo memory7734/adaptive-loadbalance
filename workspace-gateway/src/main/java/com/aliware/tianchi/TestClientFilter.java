@@ -30,7 +30,6 @@ public class TestClientFilter implements Filter {
     public Result onResponse(Result result, Invoker<?> invoker, Invocation invocation) {
         int index = (invoker.getUrl().getPort() - 20870) / 10;
         UserLoadBalance.remainder[index] = Integer.parseInt(result.getAttachment("active"));
-        UserLoadBalance.lastRt[index] = Integer.parseInt(result.getAttachment("rt"));
         return result;
     }
 }
