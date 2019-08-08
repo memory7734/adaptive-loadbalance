@@ -24,13 +24,13 @@ public class UserLoadBalance implements LoadBalance {
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        // int rand = ThreadLocalRandom.current().nextInt(remainder[0] + remainder[1] + remainder[2]);
-        // for (Invoker<T> invoker : invokers) {
-        //     rand -= remainder[(invoker.getUrl().getPort() - 20870) / 10];
-        //     if (rand < 0) {
-        //         return invoker;
-        //     }
-        // }
+        int rand = ThreadLocalRandom.current().nextInt(remainder[0] + remainder[1] + remainder[2]);
+        for (Invoker<T> invoker : invokers) {
+            rand -= remainder[(invoker.getUrl().getPort() - 20870) / 10];
+            if (rand < 0) {
+                return invoker;
+            }
+        }
         return invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
     }
 }
