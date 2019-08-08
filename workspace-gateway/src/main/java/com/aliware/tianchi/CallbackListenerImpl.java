@@ -19,7 +19,6 @@ public class CallbackListenerImpl implements CallbackListener {
         int max = Integer.parseInt(s[0]);
         ProviderStatus provider = new ProviderStatus(port, max);
         ProviderStatus.providers[(port - 20870) / 10] = provider;
-        provider.init();
     }
 
 }
