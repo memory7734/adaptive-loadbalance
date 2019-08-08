@@ -18,10 +18,7 @@ public class ProviderStatus {
         if (rtt < 3) {
             queue.pollLast();
             queue.add(new ProviderThread(port, rtt));
-            queue.add(new ProviderThread(port, 50));
-        } else {
-            queue.add(new ProviderThread(port, rtt));
         }
-
+        queue.add(new ProviderThread(port, 50));
     }
 }
