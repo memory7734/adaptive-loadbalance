@@ -14,7 +14,7 @@ public class CallbackListenerImpl implements CallbackListener {
 
     @Override
     public void receiveServerMsg(String msg) {
-        Status.refreshCurrent();
+
     }
 
 }

@@ -20,94 +20,17 @@ import java.util.concurrent.*;
  */
 public class UserLoadBalance implements LoadBalance {
 
-
-    private static final ScheduledExecutorService EXECUTOR = new ScheduledThreadPoolExecutor(1, new NamedThreadFactory("Thread Selector"));
-
-    private static boolean initExecutor = true;
-    private static boolean checkByThread = true;
-    private static boolean initFinish = false;
-
-
-    private <T> Invoker<T> selectByThread(List<Invoker<T>> invokers) {
-        if (initExecutor) {
-            synchronized (UserLoadBalance.class) {
-                if (initExecutor) {
-                    EXECUTOR.scheduleAtFixedRate(() -> {
-                        checkByThread = true;
-                        initFinish = true;
-                        Status.refreshCurrent();
-                    }, 0, 100, TimeUnit.MILLISECONDS);
-                }
-                initExecutor = false;
-            }
-        }
-        int sum = Status.getCurrent();
-        if (sum > 0) {
-            int offset = ThreadLocalRandom.current().nextInt(sum);
-            for (Invoker<T> invoker : invokers) {
-                offset -= Status.getStatus(invoker.getUrl().getPort()).getCanUseRemainder();
-                if (offset < 0) {
-                    return invoker;
-                }
-            }
-        }
-        if (initFinish && sum <= 0) {
-            checkByThread = false;
-        }
-        return null;
-    }
-
-    private <T> Invoker<T> selectByRt(List<Invoker<T>> invokers) {
-        double sum = 10000 / Status.getTotalAvgElapsed() * 3;
-        if (sum > 0) {
-            double offset = ThreadLocalRandom.current().nextDouble(sum);
-            for (Invoker<T> invoker : invokers) {
-                Status status = Status.getStatus(invoker.getUrl().getPort());
-                long lastRt = status.getLastElapsed();
-                if (!checkByThread && lastRt > Status.getTotalAvgElapsed() * 3) {
-                    continue;
-                }
-                double rt = status.getAvgElapsed();
-                offset -= 10000 / rt;
-                if (offset < 0 && lastRt < rt * 3) {
-                    return invoker;
-                }
-            }
-        }
-        return null;
-    }
-
-    private <T> Invoker<T> selectByRemainder(List<Invoker<T>> invokers) {
-        int maxThread = 0;
-        Invoker<T> result = invokers.get(0);
-        for (Invoker<T> invoker : invokers) {
-            int r = Status.getStatus(invoker.getUrl().getPort()).getRemainder();
-            if (r > maxThread) {
-                result = invoker;
-                maxThread = r;
-            }
-        }
-        return result;
-    }
+    static volatile int[] remainder = {200, 200, 200};
 
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        Invoker<T> result = null;
-        if (checkByThread) {
-            result = selectByThread(invokers);
-            if (result != null) return result;
-        }
-        while (result == null) {
-            result = selectByRt(invokers);
-            if (result == null) {
-                try {
-                    Thread.sleep(5);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        return result;
-        // return result != null ? result : selectByRemainder(invokers);
+        // int rand = ThreadLocalRandom.current().nextInt(remainder[0] + remainder[1] + remainder[2]);
+        // for (Invoker<T> invoker : invokers) {
+        //     rand -= remainder[(invoker.getUrl().getPort() - 20870) / 10];
+        //     if (rand < 0) {
+        //         return invoker;
+        //     }
+        // }
+        return invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
     }
 }
