@@ -31,7 +31,7 @@ public class UserLoadBalance implements LoadBalance {
         double min = 1000;
         for (Invoker<T> invoker : invokers) {
             int index = (invoker.getUrl().getPort() - 20870) / 10;
-            rand -= remainder[index] * 0.9;
+            rand -= remainder[index] * 0.95;
             if (rand < 0) {
                 return invoker;
             }
