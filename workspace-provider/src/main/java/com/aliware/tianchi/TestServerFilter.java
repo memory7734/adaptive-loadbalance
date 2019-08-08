@@ -24,7 +24,7 @@ public class TestServerFilter implements Filter {
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
         Result result;
-        // long begin = System.currentTimeMillis();
+        long begin = System.currentTimeMillis();
         try {
             result = invoker.invoke(invocation);
         } catch (Exception e) {
@@ -34,7 +34,7 @@ public class TestServerFilter implements Filter {
             thread = Integer.parseInt(invoker.getUrl().getParameter("threads"));
         }
         result.setAttachment("active", String.valueOf(thread - current));
-        // result.setAttachment("rt", String.valueOf(System.currentTimeMillis() - begin));
+        result.setAttachment("rt", String.valueOf(System.currentTimeMillis() - begin));
         return result;
     }
 
