@@ -7,6 +7,7 @@ import org.apache.dubbo.rpc.Invoker;
 import org.apache.dubbo.rpc.RpcException;
 import org.apache.dubbo.rpc.cluster.LoadBalance;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.*;
 
@@ -21,7 +22,7 @@ import java.util.concurrent.*;
 public class UserLoadBalance implements LoadBalance {
 
 
-    static ConcurrentSkipListSet<ProviderThread> queue = new ConcurrentSkipListSet<>();
+    static ConcurrentSkipListSet<ProviderThread> queue = new ConcurrentSkipListSet<>(Comparator.comparing(o -> o.rtt));
     static double avg = 1;
 
     @Override
