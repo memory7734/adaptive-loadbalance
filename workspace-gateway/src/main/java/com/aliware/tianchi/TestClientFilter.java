@@ -31,8 +31,8 @@ public class TestClientFilter implements Filter {
     @Override
     public Result onResponse(Result result, Invoker<?> invoker, Invocation invocation) {
         int index = (invoker.getUrl().getPort() - 20870) / 10;
-        int active =Integer.parseInt(result.getAttachment("active"));
-        UserLoadBalance.remainder[index] = active * active * active;
+        int active = Integer.parseInt(result.getAttachment("active"));
+        UserLoadBalance.remainder[index] = active * active;
         return result;
     }
 }
