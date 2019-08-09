@@ -18,7 +18,7 @@ public class CallbackListenerImpl implements CallbackListener {
         int max = Integer.parseInt(s[0]);
         int port = Integer.parseInt(s[1]);
         for (int i = 0; i < max; i++) {
-            UserLoadBalance.queue.add(new ProviderThread(port, 50));
+            UserLoadBalance.queue.add(new ProviderThread(port, 1));
         }
     }
 
