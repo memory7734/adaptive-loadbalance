@@ -4,7 +4,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class ProviderThread {
     final int port;
-    final Double rtt;
+    Double rtt;
 
     public ProviderThread(int port, double rtt) {
         this.port = port;
