@@ -20,7 +20,9 @@ public class TestClientFilter implements Filter {
             AsyncRpcResult result = (AsyncRpcResult) invoker.invoke(invocation);
             result.getResultFuture().thenAccept(a -> {
                 int port = invoker.getUrl().getPort();
-                ProviderStatus.response(port, CurrentTime.current - start);
+                if (!a.hasException()) {
+                    ProviderStatus.response(port, CurrentTime.current - start);
+                }
             });
             return result;
         } catch (Exception e) {
