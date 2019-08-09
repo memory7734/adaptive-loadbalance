@@ -32,11 +32,6 @@ public class TestClientFilter implements Filter {
     public Result onResponse(Result result, Invoker<?> invoker, Invocation invocation) {
         int index = (invoker.getUrl().getPort() - 20870) / 10;
         UserLoadBalance.remainder[index] = Integer.parseInt(result.getAttachment("active"));
-        int rttIndex = ThreadLocalRandom.current().nextInt(1024);
-        long lastRtt = UserLoadBalance.rtt[index][rttIndex];
-        long curRtt = Integer.parseInt(result.getAttachment("rtt"));
-        UserLoadBalance.avgRtt[index] = UserLoadBalance.avgRtt[index] * 1024 - lastRtt + curRtt;
-        UserLoadBalance.rtt[index][rttIndex] = curRtt;
         return result;
     }
 }
