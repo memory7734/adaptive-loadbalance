@@ -29,7 +29,13 @@ public class UserLoadBalance implements LoadBalance {
         Invoker<T> result = null;
         ProviderThread request;
         do {
-            request = queue.poll();
+            while ((request = queue.poll()) == null) {
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
             if (request.rtt < UserLoadBalance.avg) {
                 break;
             } else {
