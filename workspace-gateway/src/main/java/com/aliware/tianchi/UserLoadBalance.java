@@ -20,23 +20,21 @@ import java.util.concurrent.*;
  */
 public class UserLoadBalance implements LoadBalance {
 
+    static int[] remainder = {200, 200, 200};
+
     @Override
     public <T> Invoker<T> select(List<Invoker<T>> invokers, URL url, Invocation invocation) throws RpcException {
-        Invoker<T> result = null;
-        ProviderThread request;
-        while ((request = ProviderStatus.queue.pollFirst()) == null) {
-            try {
-                Thread.sleep(1);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+        int sum = remainder[0] * remainder[0] * remainder[0]
+                + remainder[1] * remainder[1] * remainder[1]
+                + remainder[2] * remainder[2] * remainder[2];
+        int rand = ThreadLocalRandom.current().nextInt(sum);
+        for (Invoker<T> invoker : invokers) {
+            int index = (invoker.getUrl().getPort() - 20870) / 10;
+            rand -= remainder[index] * remainder[index] * remainder[index];
+            if (rand < 0) {
+                return invoker;
             }
         }
-        for (Invoker<T> tInvoker : invokers) {
-            if (tInvoker.getUrl().getPort() == request.port) {
-                result = tInvoker;
-                break;
-            }
-        }
-        return result;
+        return invokers.get(ThreadLocalRandom.current().nextInt(invokers.size()));
     }
 }

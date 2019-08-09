@@ -2,7 +2,11 @@ package com.aliware.tianchi;
 
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.extension.Activate;
-import org.apache.dubbo.rpc.*;
+import org.apache.dubbo.rpc.Filter;
+import org.apache.dubbo.rpc.Invocation;
+import org.apache.dubbo.rpc.Invoker;
+import org.apache.dubbo.rpc.Result;
+import org.apache.dubbo.rpc.RpcException;
 
 /**
  * @author daofeng.xjf
@@ -14,14 +18,24 @@ import org.apache.dubbo.rpc.*;
 @Activate(group = Constants.PROVIDER)
 public class TestServerFilter implements Filter {
 
+    private static int thread = -1;
+    static int current = 0;
+
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        Result result;
+        long begin = System.currentTimeMillis();
         try {
-            Result result = invoker.invoke(invocation);
-            return result;
+            result = invoker.invoke(invocation);
         } catch (Exception e) {
             throw e;
         }
+        if (thread == -1) {
+            thread = Integer.parseInt(invoker.getUrl().getParameter("threads"));
+        }
+        result.setAttachment("active", String.valueOf(thread - current));
+        result.setAttachment("rtt", String.valueOf(System.currentTimeMillis() - begin));
+        return result;
     }
 
     @Override
