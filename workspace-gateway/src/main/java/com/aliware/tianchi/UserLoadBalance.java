@@ -21,7 +21,7 @@ import java.util.concurrent.*;
 public class UserLoadBalance implements LoadBalance {
 
 
-    static ConcurrentLinkedDeque<ProviderThread> queue = new ConcurrentLinkedDeque<>();
+    static ConcurrentSkipListSet<ProviderThread> queue = new ConcurrentSkipListSet<>();
     static double avg = 1;
 
     @Override
@@ -29,7 +29,7 @@ public class UserLoadBalance implements LoadBalance {
         Invoker<T> result = null;
         ProviderThread request;
         do {
-            while ((request = queue.poll()) == null) {
+            while ((request = queue.pollFirst()) == null) {
                 try {
                     Thread.sleep(1);
                 } catch (InterruptedException e) {

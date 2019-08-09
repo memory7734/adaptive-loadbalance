@@ -21,7 +21,7 @@ public class TestClientFilter implements Filter {
             result.getResultFuture().thenAccept(a -> {
                 int port = invoker.getUrl().getPort();
                 double rtt = CurrentTime.current - start;
-                UserLoadBalance.queue.addFirst(new ProviderThread(port, rtt));
+                UserLoadBalance.queue.add(new ProviderThread(port, rtt));
                 UserLoadBalance.avg = (UserLoadBalance.avg + rtt) / 2;
             });
             return result;
